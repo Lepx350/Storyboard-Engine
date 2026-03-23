@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#05070d">
+<title>Storyboard Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Azeret+Mono:wght@400;500;600&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #05070d;
+  --surface: #0a0e18;
+  --card: #0f1422;
+  --card-hover: #141a2c;
+  --border: rgba(255,255,255,0.08);
+  --border-bright: rgba(255,255,255,0.12);
+  --text: #eaf0f6;
+  --text-secondary: #8b95a5;
+  --muted: #4a5568;
+  --accent: #00e5bf;
+  --accent-dim: rgba(0,229,191,0.12);
+  --accent-glow: rgba(0,229,191,0.25);
+  --warm: #ff8c42;
+  --warm-dim: rgba(255,140,66,0.12);
+  --violet: #9580ff;
+  --violet-dim: rgba(149,128,255,0.12);
+  --red: #ff6b6b;
+  --red-dim: rgba(255,107,107,0.12);
+  --blue: #58a6ff;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: dark;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { height:100%; overflow:hidden; background:var(--bg); color-scheme:dark; }
+body {
+  font-family:'Instrument Sans',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  height:100%;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  -webkit-text-size-adjust:100%;
+}
+
+/* NOISE OVERLAY */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* SCROLLABLE CONTENT */
+.app { flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding-bottom:100px; }
+
+/* HEADER */
+.hdr {
+  position:sticky; top:0; z-index:100;
+  background-color:rgba(5,7,13,0.92);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--border-bright);
+  padding:14px 20px;
+  display:flex; align-items:center; gap:14px;
+}
+.hdr-logo {
+  width:32px; height:32px; border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--violet));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Playfair Display',serif; font-size:16px; font-weight:900; color:#000;
+  flex-shrink:0;
+}
+.hdr-text h1 {
+  font-family:'Playfair Display',serif;
+  font-size:18px; font-weight:800;
+  letter-spacing:-0.03em;
+  background:linear-gradient(135deg,var(--text) 0%,var(--text-secondary) 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.hdr-text small {
+  font-family:'Azeret Mono',monospace;
+  font-size:9px; color:var(--muted); letter-spacing:0.5px;
+}
+.hdr-status { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.hdr-status span { font-family:'Azeret Mono',monospace; font-size:10px; color:var(--text-secondary); }
+.dot {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--muted); transition:all .4s ease;
+}
+.dot.live {
+  background:var(--accent);
+  box-shadow:0 0 12px var(--accent-glow), 0 0 4px var(--accent);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* SECTIONS */
+.section { padding:0 20px; margin-bottom:16px; }
+.section-label {
+  font-family:'Azeret Mono',monospace;
+  font-size:10px; color:var(--muted);
+  text-transform:uppercase; letter-spacing:1.5px;
+  margin-bottom:10px; padding-top:20px;
+  display:flex; align-items:center; gap:8px;
+}
+.section-label::after {
+  content:''; flex:1; height:1px;
+  background:linear-gradient(90deg,var(--border),transparent);
+}
+
+/* SETTINGS TOGGLE */
+.settings-toggle {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; background-color:#0f1422; border-radius:14px;
+  border:1px solid var(--border-bright); cursor:pointer;
+  transition:background .2s;
+}
+.settings-toggle:active { background-color:var(--card-hover); }
+.settings-toggle h3 { font-size:14px; font-weight:600; color:var(--text); }
+.settings-toggle .chevron {
+  transition:transform .3s;
+  color:var(--text-secondary); font-size:12px;
+}
+.settings-toggle.open .chevron { transform:rotate(180deg); }
+.settings-body {
+  max-height:0; overflow:hidden; transition:max-height .4s cubic-bezier(0.4,0,0.2,1);
+}
+.settings-body.open { max-height:500px; }
+.settings-inner { padding:14px 0 0; display:flex; flex-direction:column; gap:12px; }
+
+/* FIELDS */
+.field { display:flex; flex-direction:column; gap:5px; }
+.field label {
+  font-family:'Azeret Mono',monospace;
+  font-size:10px; color:#8b95a5;
+  text-transform:uppercase; letter-spacing:1px;
+  font-weight:500;
+}
+.field input, .field select {
+  background-color:#0f1422;
+  border:1px solid var(--border-bright);
+  color:#eaf0f6; padding:12px 14px;
+  border-radius:10px; font-size:15px;
+  font-family:'Instrument Sans',sans-serif;
+  outline:none; transition:all .25s; width:100%;
+  -webkit-appearance:none; -moz-appearance:none; appearance:none;
+  color-scheme:dark;
+}
+.field select {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b95a5'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 14px center;
+  background-color:#0f1422;
+  padding-right:36px;
+}
+.field input:focus, .field select:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+}
+.field input::placeholder { color:var(--muted); }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+/* UPLOAD */
+.upload-zone {
+  position:relative;
+  border:1.5px dashed var(--border-bright);
+  border-radius:16px; padding:28px 20px;
+  text-align:center; cursor:pointer;
+  transition:all .3s;
+  overflow:hidden;
+  background-color:#0a0e18;
+}
+.upload-zone::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at center, var(--accent-dim) 0%, transparent 70%);
+  opacity:0; transition:opacity .3s;
+}
+.upload-zone:active::before, .upload-zone.drag::before { opacity:1; }
+.upload-zone:active, .upload-zone.drag { border-color:var(--accent); }
+.upload-zone h3 { font-size:15px; font-weight:600; position:relative; }
+.upload-zone p { font-size:11px; color:var(--text-secondary); margin-top:4px; position:relative; }
+.upload-zone .icon { font-size:28px; margin-bottom:8px; position:relative; }
+.upload-zone input { display:none; }
+.upload-zone.loaded { border-color:var(--accent); border-style:solid; }
+.upload-zone.loaded::before { opacity:0.5; }
+
+/* STATS GRID */
+.stats-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+}
+.stat-card {
+  background-color:#0f1422; border:1px solid var(--border-bright);
+  border-radius:14px; padding:14px 10px; text-align:center;
+  position:relative; overflow:hidden;
+}
+.stat-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+}
+.stat-card.accent::before { background:linear-gradient(90deg,var(--accent),transparent); }
+.stat-card.violet::before { background:linear-gradient(90deg,var(--violet),transparent); }
+.stat-card.warm::before { background:linear-gradient(90deg,var(--warm),transparent); }
+.stat-val {
+  font-family:'Playfair Display',serif;
+  font-size:28px; font-weight:800; line-height:1;
+}
+.stat-lbl {
+  font-family:'Azeret Mono',monospace;
+  font-size:8px; color:var(--text-secondary);
+  text-transform:uppercase; letter-spacing:1px;
+  margin-top:4px;
+}
+
+/* PIPELINE STEPS */
+.pipeline {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+}
+.pipe-btn {
+  background-color:#0f1422; border:1px solid var(--border-bright);
+  border-radius:14px; padding:14px 8px;
+  display:flex; flex-direction:column; align-items:center;
+  gap:6px; cursor:pointer; transition:all .2s;
+  position:relative; overflow:hidden;
+}
+.pipe-btn:active { transform:scale(0.96); background-color:var(--card-hover); }
+.pipe-btn .step-num {
+  font-family:'Azeret Mono',monospace;
+  font-size:9px; color:var(--muted);
+}
+.pipe-btn .step-icon {
+  width:36px; height:36px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+}
+.pipe-btn .step-label { font-size:11px; font-weight:600; }
+.pipe-btn.t .step-icon { background:var(--accent-dim); }
+.pipe-btn.v .step-icon { background:var(--violet-dim); }
+.pipe-btn.w .step-icon { background:var(--warm-dim); }
+.pipe-btn.b .step-icon { background:rgba(88,166,255,0.12); }
+.pipe-btn.r .step-icon { background:var(--red-dim); }
+
+/* SECTION CARDS (horizontal scroll) */
+.sec-scroll {
+  display:flex; gap:10px; overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:0 20px 4px; margin:0 -20px;
+  scrollbar-width:none;
+}
+.sec-scroll::-webkit-scrollbar { display:none; }
+.sec-card {
+  background-color:#0f1422; border:1px solid var(--border-bright);
+  border-radius:14px; padding:14px 16px;
+  min-width:145px; flex-shrink:0;
+  transition:border-color .2s;
+}
+.sec-card h4 {
+  font-size:13px; font-weight:700;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:120px; margin-bottom:4px;
+}
+.sec-card .sc-row { display:flex; align-items:baseline; gap:6px; }
+.sec-card .sc-count {
+  font-family:'Playfair Display',serif;
+  font-size:22px; font-weight:800;
+}
+.sec-card .sc-total { font-size:12px; color:var(--text-secondary); }
+.sec-card .sc-types {
+  font-family:'Azeret Mono',monospace;
+  font-size:8px; color:var(--muted); margin-top:2px;
+}
+.sec-card .sc-btn {
+  margin-top:8px; width:100%; padding:8px;
+  border-radius:8px; border:none;
+  font-family:'Instrument Sans',sans-serif;
+  font-size:11px; font-weight:700; cursor:pointer;
+  transition:all .15s;
+}
+.sc-btn.gen { background:var(--accent); color:#000; }
+.sc-btn.gen:active { background:#00c9a7; }
+.sc-btn.redo { background-color:#0a0e18; color:var(--text-secondary); border:1px solid var(--border-bright); }
+.sec-card.done { border-color:rgba(0,229,191,0.2); }
+
+/* PROGRESS */
+.prog-section { padding:0 20px; }
+.prog-bar {
+  height:4px; background-color:#0a0e18;
+  border-radius:2px; overflow:hidden;
+}
+.prog-fill {
+  height:100%;
+  background:linear-gradient(90deg,var(--accent),var(--blue),var(--violet));
+  background-size:200% 100%;
+  border-radius:2px;
+  transition:width .4s cubic-bezier(0.4,0,0.2,1);
+  width:0%;
+}
+.prog-fill.active { animation:shimmer 2s linear infinite; }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.prog-text {
+  font-family:'Azeret Mono',monospace;
+  font-size:10px; color:var(--text-secondary);
+  margin-top:6px; text-align:right;
+}
+
+/* LOG */
+.log-section { padding:0 20px; margin-top:12px; }
+.log {
+  background-color:#0a0e17;
+  border:1px solid var(--border-bright);
+  border-radius:14px; padding:14px 16px;
+  font-family:'Azeret Mono',monospace;
+  font-size:10px; line-height:1.8;
+  color:#8b95a5;
+  max-height:220px; overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.log::-webkit-scrollbar { width:3px; }
+.log::-webkit-scrollbar-thumb { background:var(--muted); border-radius:3px; }
+.log .ok { color:var(--accent); }
+.log .fail { color:var(--red); }
+.log .warn { color:var(--warm); }
+.log .head { color:var(--violet); font-weight:600; }
+
+/* BOTTOM BAR */
+.bottom-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  background-color:rgba(5,7,13,0.95);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-top:1px solid var(--border-bright);
+  padding:12px 20px calc(12px + var(--safe-bottom));
+  z-index:100;
+  display:flex; gap:10px;
+}
+.bottom-bar .bb-btn {
+  flex:1; padding:14px 8px; border-radius:12px; border:none;
+  font-family:'Instrument Sans',sans-serif;
+  font-size:13px; font-weight:700; cursor:pointer;
+  transition:all .15s; display:flex; flex-direction:column;
+  align-items:center; gap:2px;
+}
+.bb-btn:active { transform:scale(0.95); }
+.bb-btn .bb-icon { font-size:18px; }
+.bb-btn .bb-label { font-size:10px; }
+.bb-btn.primary { background:var(--accent); color:#000; }
+.bb-btn.primary:active { background:#00c9a7; }
+.bb-btn.danger { background:var(--red-dim); color:var(--red); }
+.bb-btn.secondary { background-color:#0f1422; color:var(--text-secondary); border:1px solid var(--border-bright); }
+
+/* WARNINGS */
+.warn-bar {
+  background:var(--red-dim); border:1px solid rgba(255,107,107,0.2);
+  border-radius:12px; padding:12px 16px;
+  font-size:12px; color:var(--red); cursor:pointer;
+  display:flex; align-items:center; gap:8px;
+}
+.warn-bar .warn-dot { width:6px; height:6px; border-radius:50%; background:var(--red); flex-shrink:0; }
+
+/* TOAST */
+.toast {
+  position:fixed; top:70px; left:20px; right:20px;
+  background-color:#0f1422; border:1px solid var(--border-bright);
+  border-radius:12px; padding:14px 18px;
+  font-size:13px; font-weight:500;
+  z-index:200; transform:translateY(-20px);
+  opacity:0; transition:all .3s cubic-bezier(0.4,0,0.2,1);
+  pointer-events:none; color:var(--text);
+}
+.toast.show { transform:translateY(0); opacity:1; pointer-events:auto; }
+.toast.success { border-color:rgba(0,229,191,0.3); color:var(--accent); }
+.toast.error { border-color:rgba(255,107,107,0.3); color:var(--red); }
+
+/* ANIMATIONS */
+.fade-in { animation:fadeIn .5s ease both; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+
+/* HIDDEN */
+.hidden { display:none !important; }
+
+/* DESKTOP */
+@media(min-width:768px) {
+  .app { max-width:480px; margin:0 auto; }
+  .bottom-bar { max-width:480px; left:50%; transform:translateX(-50%); }
+  .hdr { max-width:480px; margin:0 auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">S</div>
+  <div class="hdr-text">
+    <h1>Storyboard Engine</h1>
+    <small>v7 · cloud · 7-layer</small>
+  </div>
+  <div class="hdr-status">
+    <span id="statusText">Ready</span>
+    <div class="dot" id="dot"></div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="app" id="app">
+
+  <!-- SETTINGS -->
+  <div class="section">
+    <div class="section-label">Configuration</div>
+    <div class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
+      <h3>⚙ Settings</h3>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="settings-body" id="settingsBody">
+      <div class="settings-inner">
+        <div class="field">
+          <label>Gemini API Key</label>
+          <input type="password" id="apiKey" placeholder="Paste your key" value="{{ saved_key }}">
+        </div>
+        <div class="field">
+          <label>Visual Style</label>
+          <select id="style" onchange="saveSettings()">
+            {% for p in presets %}<option value="{{ p }}" {{ 'selected' if p == saved_style }}>{{ p }}</option>{% endfor %}
+            <option value="Custom">Custom</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Resolution</label>
+            <select id="resolution" onchange="saveSettings()">
+              {% for r in resolutions %}<option value="{{ r }}" {{ 'selected' if r == saved_res }}>{{ r }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Aspect Ratio</label>
+            <select id="ar" onchange="saveSettings()">
+              {% for a in ar_options %}<option value="{{ a }}" {{ 'selected' if a == saved_ar }}>{{ a }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>AI Model</label>
+          <select id="model" onchange="saveSettings()">
+            {% for m in model_options %}<option value="{{ m }}" {{ 'selected' if m == saved_model }}>{{ m }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="section">
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon" id="uploadIcon">⬆</div>
+      <h3 id="fileName">Load Storyboard</h3>
+      <p>Tap to select .jsx or .js file</p>
+      <input type="file" id="fileInput" accept="*/*">
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="section hidden" id="statsSection">
+    <div class="section-label">Overview</div>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+
+  <!-- WARNINGS -->
+  <div class="section hidden" id="warnSection">
+    <div class="warn-bar" id="warnBar" onclick="showWarnings()">
+      <div class="warn-dot"></div>
+      <span id="warnText"></span>
+    </div>
+  </div>
+
+  <!-- PIPELINE -->
+  <div class="section hidden" id="pipeSection">
+    <div class="section-label">Pipeline</div>
+    <div class="pipeline">
+      <div class="pipe-btn t" onclick="run('characters')">
+        <span class="step-num">01</span>
+        <div class="step-icon">👤</div>
+        <span class="step-label">Characters</span>
+      </div>
+      <div class="pipe-btn v" onclick="run('environments')">
+        <span class="step-num">02</span>
+        <div class="step-icon">🏢</div>
+        <span class="step-label">Envs</span>
+      </div>
+      <div class="pipe-btn v" onclick="run('master_shots')">
+        <span class="step-num">02b</span>
+        <div class="step-icon">🎯</div>
+        <span class="step-label">Masters</span>
+      </div>
+      <div class="pipe-btn t" onclick="run('scenes')">
+        <span class="step-num">03</span>
+        <div class="step-icon">🎬</div>
+        <span class="step-label">Scenes</span>
+      </div>
+      <div class="pipe-btn w" onclick="run('color_grade')">
+        <span class="step-num">04</span>
+        <div class="step-icon">🎨</div>
+        <span class="step-label">Grade</span>
+      </div>
+      <div class="pipe-btn b" onclick="run('export')">
+        <span class="step-num">05</span>
+        <div class="step-icon">📄</div>
+        <span class="step-label">Export</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTIONS -->
+  <div class="section hidden" id="secSection">
+    <div class="section-label">Sections</div>
+    <div class="sec-scroll" id="secScroll"></div>
+  </div>
+
+  <!-- REDO PANEL -->
+  <div class="section hidden" id="redoSection">
+    <div class="section-label">Redo Single Panel</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="redoInput" placeholder="e.g. S3-P09"
+        style="flex:1;background-color:#0f1422;border:1px solid var(--border-bright);color:var(--text);padding:10px 14px;border-radius:10px;font-size:14px;font-family:'Instrument Sans',sans-serif;outline:none;color-scheme:dark;">
+      <button onclick="redoPanel()" style="background:var(--warm);color:#000;border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:13px;cursor:pointer;font-family:'Instrument Sans',sans-serif;">Redo</button>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="prog-section">
+    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    <div class="prog-text" id="progText"></div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-section">
+    <div class="log" id="log"></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM BAR -->
+<div class="bottom-bar" id="bottomBar">
+  <button class="bb-btn primary" onclick="runNext()" id="bbMain">
+    <span class="bb-icon">▶</span>
+    <span class="bb-label">Start</span>
+  </button>
+  <button class="bb-btn danger hidden" onclick="stopRun()" id="bbStop">
+    <span class="bb-icon">■</span>
+    <span class="bb-label">Stop</span>
+  </button>
+  <button class="bb-btn secondary" onclick="run('export')">
+    <span class="bb-icon">↗</span>
+    <span class="bb-label">Export</span>
+  </button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let isRunning = false;
+let currentRunStep = '';
+let warnings = [];
+let currentStep = 0;
+const steps = ['characters','environments','master_shots','scenes','color_grade'];
+
+function toast(msg, type='success') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+function toggleSettings() {
+  $('settingsToggle').classList.toggle('open');
+  $('settingsBody').classList.toggle('open');
+}
+
+// UPLOAD
+$('fileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  $('fileName').textContent = file.name;
+  $('uploadIcon').textContent = '✓';
+  $('dropZone').classList.add('loaded');
+  await saveSettings();
+
+  const form = new FormData();
+  form.append('storyboard', file);
+  const res = await fetch('/api/upload', {method:'POST', body:form});
+  const data = await res.json();
+  if (data.error) { toast(data.error, 'error'); return; }
+
+  // Stats
+  const grid = $('statsGrid');
+  const stats = [
+    {v:data.total, l:'Panels', c:'var(--text)', cls:''},
+    {v:data.noir, l:'Primary', c:'var(--accent)', cls:'accent'},
+    {v:data.fern, l:'Secondary', c:'var(--violet)', cls:'violet'},
+    
+    {v:data.chars, l:'Characters', c:'var(--accent)', cls:'accent'},
+    {v:data.envs, l:'Locations', c:'var(--violet)', cls:'violet'},
+  ];
+  grid.innerHTML = stats.map((s,i) =>
+    `<div class="stat-card ${s.cls} fade-in" style="animation-delay:${i*0.06}s">
+      <div class="stat-val" style="color:${s.c}">${s.v}</div>
+      <div class="stat-lbl">${s.l}</div>
+    </div>`
+  ).join('');
+  $('statsSection').classList.remove('hidden');
+
+  // Warnings
+  warnings = data.warnings;
+  if (warnings.length) {
+    $('warnText').textContent = `${warnings.length} warning${warnings.length>1?'s':''} found`;
+    $('warnSection').classList.remove('hidden');
+  }
+
+  // Sections
+  const scroll = $('secScroll');
+  scroll.innerHTML = data.sections.map((s,i) => {
+    const done = s.done === s.total;
+    const pct = s.total ? Math.round(s.done/s.total*100) : 0;
+    return `<div class="sec-card ${done?'done':''} fade-in" style="animation-delay:${i*0.05}s">
+      <h4>${s.name}</h4>
+      <div class="sc-row">
+        <span class="sc-count" style="color:${done?'var(--accent)':pct>0?'var(--warm)':'var(--muted)'}">${s.done}</span>
+        <span class="sc-total">/ ${s.total}</span>
+      </div>
+      <div class="sc-types">P:${s.noir}${s.fern?' S:'+s.fern:''}</div>
+      <button class="sc-btn ${done?'redo':'gen'}" onclick="run('scenes','${s.name}')">${done?'Redo':'Generate'}</button>
+    </div>`;
+  }).join('');
+  $('secSection').classList.remove('hidden');
+  $('redoSection').classList.remove('hidden');
+  $('pipeSection').classList.remove('hidden');
+
+  // Close settings
+  $('settingsToggle').classList.remove('open');
+  $('settingsBody').classList.remove('open');
+
+  toast(`Loaded ${data.total} panels · ${data.gen_count} to generate`);
+  addLog(`Loaded: ${data.total} panels | Generate: ${data.gen_count}`, 'head');
+  currentStep = 0;
+  updateMainBtn();
+});
+
+// DRAG
+const dz = $('dropZone');
+['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev => {ev.preventDefault();dz.classList.add('drag')}));
+['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => {ev.preventDefault();dz.classList.remove('drag')}));
+dz.addEventListener('drop', e => {$('fileInput').files=e.dataTransfer.files;$('fileInput').dispatchEvent(new Event('change'))});
+
+// SETTINGS
+async function saveSettings() {
+  await fetch('/api/settings', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      api_key:$('apiKey').value, style:$('style').value,
+      resolution:$('resolution').value, aspect_ratio:$('ar').value,
+      model:$('model').value,
+    })
+  });
+}
+
+// RUN
+async function run(step, section) {
+  if (isRunning) { toast('Already running', 'error'); return; }
+  if (!$('apiKey').value) { toast('Enter API key first', 'error'); toggleSettings(); $('settingsToggle').classList.add('open'); $('settingsBody').classList.add('open'); return; }
+  await saveSettings();
+  const body = {api_key:$('apiKey').value};
+  if (section) body.section = section;
+  const res = await fetch(`/api/run/${step}`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (data.error) { toast(data.error, 'error'); return; }
+  isRunning = true;
+  currentRunStep = step;
+  setRunning(true);
+  toast(`Running: ${step.replace('_',' ')}`);
+  startSSE();
+}
+
+function runNext() {
+  if (currentStep < steps.length) {
+    run(steps[currentStep]);
+    currentStep++;
+    updateMainBtn();
+  }
+}
+
+function updateMainBtn() {
+  const labels = ['1. Characters','2. Environments','2b. Masters','3. Scenes','4. Grade','✓ Done'];
+  $('bbMain').querySelector('.bb-label').textContent = labels[Math.min(currentStep, labels.length-1)];
+}
+
+async function stopRun() {
+  await fetch('/api/stop', {method:'POST'});
+  toast('Stopping...');
+}
+
+async function redoPanel() {
+  const panelId = $('redoInput').value.trim();
+  if (!panelId) { toast('Enter panel ID', 'error'); return; }
+
+  // Step 1: Delete the image
+  const delRes = await fetch('/api/delete_panel', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({panel_id: panelId})
+  });
+  const delData = await delRes.json();
+  if (delData.error) { toast(delData.error, 'error'); return; }
+  toast(`Deleted ${panelId}. Finding section...`);
+
+  // Step 2: Find which section this panel belongs to
+  // Extract section number from panel ID (e.g. S3-P09 → S3)
+  const secMatch = panelId.match(/^(S\d+)/i);
+  if (!secMatch) { toast('Invalid panel ID format', 'error'); return; }
+
+  // Find the section name by looking at section cards
+  const cards = document.querySelectorAll('.sec-card h4');
+  let sectionName = null;
+  // Use the sections data we stored
+  if (window._sections) {
+    for (const s of window._sections) {
+      // Check if any panel in this section matches
+      if (s.name) {
+        // We'll just run the section — the skip logic handles the rest
+        // Match by section index
+      }
+    }
+  }
+
+  // Step 3: Run scenes for the section containing this panel
+  // The skip logic will regenerate ONLY the deleted panel
+  toast(`Regenerating ${panelId}...`);
+  await saveSettings();
+  const body = {api_key: $('apiKey').value, section: '__ALL__'};
+  const res = await fetch('/api/run/scenes', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (data.error) { toast(data.error, 'error'); return; }
+  isRunning = true;
+  currentRunStep = 'scenes';
+  setRunning(true);
+  startSSE();
+}
+
+function setRunning(v) {
+  isRunning = v;
+  $('dot').classList.toggle('live', v);
+  $('statusText').textContent = v ? 'Generating' : 'Ready';
+  $('bbStop').classList.toggle('hidden', !v);
+  $('progFill').classList.toggle('active', v);
+}
+
+// SSE
+let evtSource = null;
+function startSSE() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/stream');
+  evtSource.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.type === 'log') addLog(d.msg, d.tag);
+    if (d.type === 'progress') {
+      const pct = d.total ? (d.done/d.total*100) : 0;
+      $('progFill').style.width = pct + '%';
+      $('progText').textContent = d.total ? `${d.done} / ${d.total}  ·  ${Math.round(pct)}%` : '';
+      if (!d.running && isRunning) {
+        setRunning(false);
+        if (currentRunStep === 'export') {
+          toast('Export ready! Opening...');
+          setTimeout(() => window.open('/api/export_html', '_blank'), 500);
+        } else {
+          toast('Generation complete ✓');
+        }
+        currentRunStep = '';
+        evtSource.close();
+      }
+    }
+  };
+}
+
+function addLog(msg, tag) {
+  const el = $('log');
+  const div = document.createElement('div');
+  div.className = tag || 'info';
+  div.textContent = msg;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function showWarnings() {
+  toast(warnings.join('\n'), 'error');
+}
+</script>
+</body>
+</html>
