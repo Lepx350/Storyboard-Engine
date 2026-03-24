@@ -2,8 +2,6 @@
 Storyboard Visual Engine v7 — Web Edition
 Deploy to Railway.app or run locally.
 Phone: open browser → use from anywhere.
-
-v7.1: Vertex AI support for $300 trial credit
 """
 import os, json, time, threading, shutil, base64
 from pathlib import Path
@@ -45,15 +43,14 @@ def prog(done, total):
 @app.route("/")
 def index():
     cfg = load_config()
+    # API key priority: config file > env var
     saved_key = cfg.get("api_key", "") or os.environ.get("GEMINI_API_KEY", "")
-    saved_project = cfg.get("project_id", "") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
     return render_template("index.html",
         presets=list(STYLE_PRESETS.keys()),
         resolutions=list(RESOLUTION_MAP.keys()),
         ar_options=AR_OPTIONS,
         model_options=list(MODEL_OPTIONS.keys()),
         saved_key=saved_key,
-        saved_project=saved_project,
         saved_style=cfg.get("style", list(STYLE_PRESETS.keys())[0]),
         saved_res=cfg.get("resolution", "2K (recommended)"),
         saved_ar=cfg.get("aspect_ratio", "16:9"),
@@ -66,6 +63,7 @@ def upload():
     if not f:
         return jsonify(error="No file"), 400
 
+    # Save storyboard
     upload_dir = Path("workspace")
     upload_dir.mkdir(exist_ok=True)
     path = upload_dir / f.filename
@@ -76,6 +74,7 @@ def upload():
     if not panels:
         return jsonify(error="No panels found"), 400
 
+    # Setup output dirs
     out = upload_dir / "generated_images"
     for d in ["characters/front", "characters/three_quarter", "characters/action",
               "environments", "master_shots", "scenes", "post_processed", "final"]:
@@ -110,7 +109,6 @@ def upload():
         if cold and get_asset_type(p) != 'noir':
             warnings.append(f"{pid}: Cold open must be Noir")
 
-    media = [p for p in panels if get_asset_type(p) == 'media']
     if media:
         warnings.append(f"{len(media)} Media panels found — convert to Noir")
 
@@ -121,6 +119,7 @@ def upload():
     state["warnings"] = warnings
     state["log"] = []
 
+    # Build sections
     sections = []
     sec_dict = {}
     for p in gen:
@@ -130,6 +129,7 @@ def upload():
             sections.append(sec)
         sec_dict[sec].append(p)
 
+    # Count done per section
     sec_info = []
     for sec in sections:
         panels_in = sec_dict[sec]
@@ -150,8 +150,6 @@ def settings():
     data = request.json
     if data.get("api_key"):
         save_config({"api_key": data["api_key"]})
-    if data.get("project_id"):
-        save_config({"project_id": data["project_id"]})
     if data.get("style"):
         name = data["style"]
         if name in STYLE_PRESETS:
@@ -210,6 +208,7 @@ def stop():
 
 @app.route("/api/delete_panel", methods=["POST"])
 def delete_panel():
+    """Delete a single panel image so it can be regenerated."""
     data = request.json or {}
     panel_id = data.get("panel_id")
     if not panel_id or not state["output_dir"]:
@@ -217,6 +216,8 @@ def delete_panel():
 
     out = state["output_dir"]
     deleted = []
+
+    # Find and delete matching files in scenes/ and final/
     for folder in ["scenes", "final", "post_processed"]:
         d = out / folder
         if d.exists():
@@ -230,6 +231,7 @@ def delete_panel():
 
 @app.route("/api/stream")
 def stream():
+    """SSE endpoint for real-time log + progress."""
     def gen():
         idx = 0
         while True:
@@ -254,29 +256,18 @@ def serve_export():
         return send_file(str(path))
     return "Not exported yet", 404
 
-# ══════════════════════════════════════════════════════════
-# CLIENT — Vertex AI (uses $300 credit) or AI Studio fallback
-# ══════════════════════════════════════════════════════════
+# ── GENERATION WORKERS ──
 def get_client(key):
     from google import genai
-    cfg = load_config()
-    project_id = cfg.get("project_id") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    
+    # Vertex AI Express Mode — uses $300 free credits
+    # vertexai=True + api_key, NO project, NO location
+    # Routes to global express endpoint, credits apply
+    return genai.Client(
+        vertexai=True,
+        api_key=key,
+    )
 
-    if project_id:
-        # ✅ VERTEX AI — charges go to $300 trial credit
-        log(f"✅ Vertex AI mode (project: {project_id})", "ok")
-        return genai.Client(
-            vertexai=True,
-            project=project_id,
-            location="global",
-            api_key=key,
-        )
-    else:
-        # ⚠️ AI STUDIO — charges go to your credit card
-        log("⚠️ AI Studio mode (no project ID → charges your card!)", "warn")
-        return genai.Client(api_key=key)
-
-# ── GENERATION WORKERS ──
 def run_characters(key):
     try:
         client = get_client(key)
@@ -302,10 +293,8 @@ def run_characters(key):
                     if img: p.write_bytes(img); log(f"OK → @{cid}_{view}", "ok")
                     else: log(f"WARN @{cid}", "warn")
                 except Exception as e:
-                    log(f"FAIL: {str(e)[:80]}", "fail")
-                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                        log("Rate limited — waiting 30s...", "warn")
-                        time.sleep(30)
+                    log(f"FAIL: {str(e)[:60]}", "fail")
+                    if "429" in str(e): time.sleep(30)
                 time.sleep(4)
         log("Step 1 done!", "ok")
     finally:
@@ -329,10 +318,8 @@ def run_environments(key):
                 if img: p.write_bytes(img); log(f"OK → {eid}", "ok")
                 else: log(f"WARN {eid}", "warn")
             except Exception as e:
-                log(f"FAIL: {str(e)[:80]}", "fail")
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    log("Rate limited — waiting 30s...", "warn")
-                    time.sleep(30)
+                log(f"FAIL: {str(e)[:60]}", "fail")
+                if "429" in str(e): time.sleep(30)
             time.sleep(4)
         log("Step 2 done!", "ok")
     finally:
@@ -360,10 +347,8 @@ def run_master_shots(key):
                 if img: p.write_bytes(img); log(f"OK → {eid}_master (L6)", "ok")
                 else: log(f"WARN {eid}", "warn")
             except Exception as e:
-                log(f"FAIL: {str(e)[:80]}", "fail")
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    log("Rate limited — waiting 30s...", "warn")
-                    time.sleep(30)
+                log(f"FAIL: {str(e)[:60]}", "fail")
+                if "429" in str(e): time.sleep(30)
             time.sleep(4)
         log("Master shots locked!", "ok")
     finally:
@@ -379,6 +364,7 @@ def run_scenes(key, section_filter):
         target = all_gen if section_filter == "__ALL__" else [p for p in all_gen if get_section(p) == section_filter]
         label = "ALL" if section_filter == "__ALL__" else section_filter
 
+        # Gather refs
         char_refs = {}
         for cid in CHARACTERS:
             front = out / "characters" / "front" / f"@{cid}.png"
@@ -397,6 +383,7 @@ def run_scenes(key, section_filter):
         total = len(target)
         log(f"STEP 3: {label} ({total} panels, L1-L7)", "head")
 
+        # Group by section
         sections = {}
         for p in target:
             sec = get_section(p)
@@ -438,6 +425,7 @@ def run_scenes(key, section_filter):
             elif event == "warn":
                 fail_n += 1; log(f"WARN {args[0]}", "warn")
 
+        # Stop propagation
         def check_stop():
             while state["running"]:
                 time.sleep(1)
@@ -470,6 +458,7 @@ def run_color_grade():
             except Exception as e:
                 log(f"FAIL {f.name}: {str(e)[:60]}", "fail")
 
+        # Auto-finalize
         log("Finalizing → final/", "head")
         final = out / "final"; final.mkdir(exist_ok=True)
         copied = 0
@@ -526,7 +515,7 @@ def run_export():
 .cam{{background:#0f766e15;border:1px solid #0f766e33;border-radius:6px;padding:8px 12px;margin-top:6px;font-size:11px;color:#2dd4bf}}
 </style></head><body>
 <div class="header"><div class="title">VISUAL PRODUCTION BIBLE</div>
-<div class="sub">v7.1 · {datetime.now().strftime('%Y-%m-%d %H:%M')} · {style_name} · {len(state["panels"])} panels · {img_count} images</div></div>'''
+<div class="sub">v7 · {datetime.now().strftime('%Y-%m-%d %H:%M')} · {style_name} · {len(state["panels"])} panels · {img_count} images</div></div>'''
 
         for sec in sections:
             html += f'<div class="section-hdr">{sec} ({len(sec_dict[sec])})</div>'
