@@ -777,8 +777,8 @@ function startSSE() {
       if (!d.running && isRunning) {
         setRunning(false);
         if (currentRunStep === 'export') {
-          toast('Export ready! Opening...');
-          setTimeout(() => window.open('/api/export_html', '_blank'), 500);
+          toast('Export ready! Downloading...');
+          setTimeout(() => { window.location.href = '/api/export_html'; }, 500);
         } else {
           toast('Generation complete ✓');
         }
