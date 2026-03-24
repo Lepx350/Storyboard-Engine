@@ -109,9 +109,6 @@ def upload():
         if cold and get_asset_type(p) != 'noir':
             warnings.append(f"{pid}: Cold open must be Noir")
 
-    if media:
-        warnings.append(f"{len(media)} Media panels found — convert to Noir")
-
     state["char_map"] = char_map
     state["env_map"] = env_map
     state["used_chars"] = list(set(c for cs in char_map.values() for c in cs))
