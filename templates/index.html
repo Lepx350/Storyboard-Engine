@@ -47,7 +47,6 @@ body {
   -webkit-text-size-adjust:100%;
 }
 
-/* NOISE OVERLAY */
 body::before {
   content:'';
   position:fixed;
@@ -57,10 +56,8 @@ body::before {
   z-index:9999;
 }
 
-/* SCROLLABLE CONTENT */
 .app { flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding-bottom:100px; }
 
-/* HEADER */
 .hdr {
   position:sticky; top:0; z-index:100;
   background-color:rgba(5,7,13,0.92);
@@ -101,7 +98,6 @@ body::before {
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-/* SECTIONS */
 .section { padding:0 20px; margin-bottom:16px; }
 .section-label {
   font-family:'Azeret Mono',monospace;
@@ -115,7 +111,6 @@ body::before {
   background:linear-gradient(90deg,var(--border),transparent);
 }
 
-/* SETTINGS TOGGLE */
 .settings-toggle {
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 16px; background-color:#0f1422; border-radius:14px;
@@ -132,16 +127,20 @@ body::before {
 .settings-body {
   max-height:0; overflow:hidden; transition:max-height .4s cubic-bezier(0.4,0,0.2,1);
 }
-.settings-body.open { max-height:500px; }
+.settings-body.open { max-height:600px; }
 .settings-inner { padding:14px 0 0; display:flex; flex-direction:column; gap:12px; }
 
-/* FIELDS */
 .field { display:flex; flex-direction:column; gap:5px; }
 .field label {
   font-family:'Azeret Mono',monospace;
   font-size:10px; color:#8b95a5;
   text-transform:uppercase; letter-spacing:1px;
   font-weight:500;
+}
+.field .hint {
+  font-family:'Azeret Mono',monospace;
+  font-size:9px; color:var(--accent); opacity:0.7;
+  margin-top:-2px;
 }
 .field input, .field select {
   background-color:#0f1422;
@@ -167,7 +166,6 @@ body::before {
 .field input::placeholder { color:var(--muted); }
 .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
-/* UPLOAD */
 .upload-zone {
   position:relative;
   border:1.5px dashed var(--border-bright);
@@ -191,7 +189,6 @@ body::before {
 .upload-zone.loaded { border-color:var(--accent); border-style:solid; }
 .upload-zone.loaded::before { opacity:0.5; }
 
-/* STATS GRID */
 .stats-grid {
   display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
 }
@@ -217,7 +214,6 @@ body::before {
   margin-top:4px;
 }
 
-/* PIPELINE STEPS */
 .pipeline {
   display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
 }
@@ -245,7 +241,6 @@ body::before {
 .pipe-btn.b .step-icon { background:rgba(88,166,255,0.12); }
 .pipe-btn.r .step-icon { background:var(--red-dim); }
 
-/* SECTION CARDS (horizontal scroll) */
 .sec-scroll {
   display:flex; gap:10px; overflow-x:auto;
   -webkit-overflow-scrolling:touch;
@@ -286,7 +281,6 @@ body::before {
 .sc-btn.redo { background-color:#0a0e18; color:var(--text-secondary); border:1px solid var(--border-bright); }
 .sec-card.done { border-color:rgba(0,229,191,0.2); }
 
-/* PROGRESS */
 .prog-section { padding:0 20px; }
 .prog-bar {
   height:4px; background-color:#0a0e18;
@@ -308,7 +302,6 @@ body::before {
   margin-top:6px; text-align:right;
 }
 
-/* LOG */
 .log-section { padding:0 20px; margin-top:12px; }
 .log {
   background-color:#0a0e17;
@@ -327,7 +320,6 @@ body::before {
 .log .warn { color:var(--warm); }
 .log .head { color:var(--violet); font-weight:600; }
 
-/* BOTTOM BAR */
 .bottom-bar {
   position:fixed; bottom:0; left:0; right:0;
   background-color:rgba(5,7,13,0.95);
@@ -353,7 +345,6 @@ body::before {
 .bb-btn.danger { background:var(--red-dim); color:var(--red); }
 .bb-btn.secondary { background-color:#0f1422; color:var(--text-secondary); border:1px solid var(--border-bright); }
 
-/* WARNINGS */
 .warn-bar {
   background:var(--red-dim); border:1px solid rgba(255,107,107,0.2);
   border-radius:12px; padding:12px 16px;
@@ -362,7 +353,6 @@ body::before {
 }
 .warn-bar .warn-dot { width:6px; height:6px; border-radius:50%; background:var(--red); flex-shrink:0; }
 
-/* TOAST */
 .toast {
   position:fixed; top:70px; left:20px; right:20px;
   background-color:#0f1422; border:1px solid var(--border-bright);
@@ -376,14 +366,11 @@ body::before {
 .toast.success { border-color:rgba(0,229,191,0.3); color:var(--accent); }
 .toast.error { border-color:rgba(255,107,107,0.3); color:var(--red); }
 
-/* ANIMATIONS */
 .fade-in { animation:fadeIn .5s ease both; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
 
-/* HIDDEN */
 .hidden { display:none !important; }
 
-/* DESKTOP */
 @media(min-width:768px) {
   .app { max-width:480px; margin:0 auto; }
   .bottom-bar { max-width:480px; left:50%; transform:translateX(-50%); }
@@ -393,15 +380,13 @@ body::before {
 </head>
 <body>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- HEADER -->
 <div class="hdr">
   <div class="hdr-logo">S</div>
   <div class="hdr-text">
     <h1>Storyboard Engine</h1>
-    <small>v7 · cloud · 7-layer</small>
+    <small>v7.1 · vertex ai · 7-layer</small>
   </div>
   <div class="hdr-status">
     <span id="statusText">Ready</span>
@@ -409,7 +394,6 @@ body::before {
   </div>
 </div>
 
-<!-- MAIN CONTENT -->
 <div class="app" id="app">
 
   <!-- SETTINGS -->
@@ -422,8 +406,13 @@ body::before {
     <div class="settings-body" id="settingsBody">
       <div class="settings-inner">
         <div class="field">
-          <label>Gemini API Key</label>
-          <input type="password" id="apiKey" placeholder="Paste your key" value="{{ saved_key }}">
+          <label>API Key</label>
+          <input type="password" id="apiKey" placeholder="Vertex AI or AI Studio key" value="{{ saved_key }}">
+        </div>
+        <div class="field">
+          <label>Cloud Project ID</label>
+          <input type="text" id="projectId" placeholder="Leave empty = AI Studio (charges card)" value="{{ saved_project }}">
+          <div class="hint">↑ Set this to use $300 Vertex AI credit</div>
         </div>
         <div class="field">
           <label>Visual Style</label>
@@ -582,7 +571,6 @@ function toggleSettings() {
   $('settingsBody').classList.toggle('open');
 }
 
-// UPLOAD
 $('fileInput').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -597,13 +585,11 @@ $('fileInput').addEventListener('change', async e => {
   const data = await res.json();
   if (data.error) { toast(data.error, 'error'); return; }
 
-  // Stats
   const grid = $('statsGrid');
   const stats = [
     {v:data.total, l:'Panels', c:'var(--text)', cls:''},
     {v:data.noir, l:'Primary', c:'var(--accent)', cls:'accent'},
     {v:data.fern, l:'Secondary', c:'var(--violet)', cls:'violet'},
-    
     {v:data.chars, l:'Characters', c:'var(--accent)', cls:'accent'},
     {v:data.envs, l:'Locations', c:'var(--violet)', cls:'violet'},
   ];
@@ -615,14 +601,12 @@ $('fileInput').addEventListener('change', async e => {
   ).join('');
   $('statsSection').classList.remove('hidden');
 
-  // Warnings
   warnings = data.warnings;
   if (warnings.length) {
     $('warnText').textContent = `${warnings.length} warning${warnings.length>1?'s':''} found`;
     $('warnSection').classList.remove('hidden');
   }
 
-  // Sections
   const scroll = $('secScroll');
   scroll.innerHTML = data.sections.map((s,i) => {
     const done = s.done === s.total;
@@ -641,7 +625,6 @@ $('fileInput').addEventListener('change', async e => {
   $('redoSection').classList.remove('hidden');
   $('pipeSection').classList.remove('hidden');
 
-  // Close settings
   $('settingsToggle').classList.remove('open');
   $('settingsBody').classList.remove('open');
 
@@ -651,25 +634,25 @@ $('fileInput').addEventListener('change', async e => {
   updateMainBtn();
 });
 
-// DRAG
 const dz = $('dropZone');
 ['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev => {ev.preventDefault();dz.classList.add('drag')}));
 ['dragleave','drop'].forEach(e => dz.addEventListener(e, ev => {ev.preventDefault();dz.classList.remove('drag')}));
 dz.addEventListener('drop', e => {$('fileInput').files=e.dataTransfer.files;$('fileInput').dispatchEvent(new Event('change'))});
 
-// SETTINGS
 async function saveSettings() {
   await fetch('/api/settings', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-      api_key:$('apiKey').value, style:$('style').value,
-      resolution:$('resolution').value, aspect_ratio:$('ar').value,
+      api_key:$('apiKey').value,
+      project_id:$('projectId').value,
+      style:$('style').value,
+      resolution:$('resolution').value,
+      aspect_ratio:$('ar').value,
       model:$('model').value,
     })
   });
 }
 
-// RUN
 async function run(step, section) {
   if (isRunning) { toast('Already running', 'error'); return; }
   if (!$('apiKey').value) { toast('Enter API key first', 'error'); toggleSettings(); $('settingsToggle').classList.add('open'); $('settingsBody').classList.add('open'); return; }
@@ -710,37 +693,14 @@ async function redoPanel() {
   const panelId = $('redoInput').value.trim();
   if (!panelId) { toast('Enter panel ID', 'error'); return; }
 
-  // Step 1: Delete the image
   const delRes = await fetch('/api/delete_panel', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({panel_id: panelId})
   });
   const delData = await delRes.json();
   if (delData.error) { toast(delData.error, 'error'); return; }
-  toast(`Deleted ${panelId}. Finding section...`);
+  toast(`Deleted ${panelId}. Regenerating...`);
 
-  // Step 2: Find which section this panel belongs to
-  // Extract section number from panel ID (e.g. S3-P09 → S3)
-  const secMatch = panelId.match(/^(S\d+)/i);
-  if (!secMatch) { toast('Invalid panel ID format', 'error'); return; }
-
-  // Find the section name by looking at section cards
-  const cards = document.querySelectorAll('.sec-card h4');
-  let sectionName = null;
-  // Use the sections data we stored
-  if (window._sections) {
-    for (const s of window._sections) {
-      // Check if any panel in this section matches
-      if (s.name) {
-        // We'll just run the section — the skip logic handles the rest
-        // Match by section index
-      }
-    }
-  }
-
-  // Step 3: Run scenes for the section containing this panel
-  // The skip logic will regenerate ONLY the deleted panel
-  toast(`Regenerating ${panelId}...`);
   await saveSettings();
   const body = {api_key: $('apiKey').value, section: '__ALL__'};
   const res = await fetch('/api/run/scenes', {
@@ -762,7 +722,6 @@ function setRunning(v) {
   $('progFill').classList.toggle('active', v);
 }
 
-// SSE
 let evtSource = null;
 function startSSE() {
   if (evtSource) evtSource.close();
