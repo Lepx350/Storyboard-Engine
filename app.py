@@ -250,7 +250,7 @@ def serve_image(filename):
 def serve_export():
     path = Path("workspace/storyboard_visual.html")
     if path.exists():
-        return send_file(str(path))
+        return send_file(str(path), as_attachment=True, download_name="storyboard_visual.html")
     return "Not exported yet", 404
 
 # ── GENERATION WORKERS ──
