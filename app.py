@@ -18,6 +18,7 @@ from engine import (
     get_config, gen_single, gen_chat_section, extract_image,
     post_process, VisualMemoryBank,
     load_config, save_config,
+    load_dynamic_characters, get_active_characters,
 )
 import engine
 
@@ -73,6 +74,9 @@ def upload():
     panels = parse_storyboard(text)
     if not panels:
         return jsonify(error="No panels found"), 400
+
+    # Auto-extract characters from storyboard
+    load_dynamic_characters(text)
 
     # Setup output dirs
     out = upload_dir / "generated_images"
@@ -253,6 +257,35 @@ def serve_export():
         return send_file(str(path), as_attachment=True, download_name="storyboard_visual.html")
     return "Not exported yet", 404
 
+@app.route("/api/preview/<panel_id>")
+def preview_panel(panel_id):
+    """Serve generated panel image for inline preview."""
+    if not state["output_dir"]:
+        return "No project loaded", 404
+    out = state["output_dir"]
+    for d in ["final", "post_processed", "scenes"]:
+        for p in state.get("panels", []):
+            if p.get("id") == panel_id:
+                fname = f"{p.get('f', panel_id)}.png"
+                path = out / d / fname
+                if path.exists():
+                    return send_file(str(path), mimetype="image/png")
+    return "Not found", 404
+
+@app.route("/api/panel_status")
+def panel_status():
+    """Return generation status for all panels."""
+    if not state["output_dir"]:
+        return jsonify(panels={})
+    out = state["output_dir"]
+    status = {}
+    for p in state.get("panels", []):
+        pid = p.get("id", "")
+        fname = f"{p.get('f', pid)}.png"
+        done = any((out / d / fname).exists() for d in ["final", "post_processed", "scenes"])
+        status[pid] = {"done": done, "type": get_asset_type(p)}
+    return jsonify(panels=status)
+
 # ── GENERATION WORKERS ──
 def get_client(key):
     from google import genai
@@ -290,8 +323,7 @@ def run_characters(key):
                     if img: p.write_bytes(img); log(f"OK → @{cid}_{view}", "ok")
                     else: log(f"WARN @{cid}", "warn")
                 except Exception as e:
-                    log(f"FAIL: {str(e)[:60]}", "fail")
-                    if "429" in str(e): time.sleep(30)
+                    log(f"FAIL: {str(e)[:80]}", "fail")
                 time.sleep(4)
         log("Step 1 done!", "ok")
     finally:
@@ -315,8 +347,7 @@ def run_environments(key):
                 if img: p.write_bytes(img); log(f"OK → {eid}", "ok")
                 else: log(f"WARN {eid}", "warn")
             except Exception as e:
-                log(f"FAIL: {str(e)[:60]}", "fail")
-                if "429" in str(e): time.sleep(30)
+                log(f"FAIL: {str(e)[:80]}", "fail")
             time.sleep(4)
         log("Step 2 done!", "ok")
     finally:
@@ -344,8 +375,7 @@ def run_master_shots(key):
                 if img: p.write_bytes(img); log(f"OK → {eid}_master (L6)", "ok")
                 else: log(f"WARN {eid}", "warn")
             except Exception as e:
-                log(f"FAIL: {str(e)[:60]}", "fail")
-                if "429" in str(e): time.sleep(30)
+                log(f"FAIL: {str(e)[:80]}", "fail")
             time.sleep(4)
         log("Master shots locked!", "ok")
     finally:
@@ -363,7 +393,7 @@ def run_scenes(key, section_filter):
 
         # Gather refs
         char_refs = {}
-        for cid in CHARACTERS:
+        for cid in get_active_characters():
             front = out / "characters" / "front" / f"@{cid}.png"
             tq = out / "characters" / "three_quarter" / f"@{cid}.png"
             if front.exists():

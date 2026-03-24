@@ -495,7 +495,10 @@ CHARACTERS = {
 
 def get_char_view_prompt(cid, view):
     """Build full character ref prompt: active preset char_base + character-specific detail."""
-    return get_char_base() + CHARACTERS[cid]["views"][view]
+    chars = get_active_characters()
+    if cid in chars and view in chars[cid].get("views", {}):
+        return get_char_base() + chars[cid]["views"][view]
+    return get_char_base()
 
 ENVIRONMENTS = {
     "vault_interior": {"name": "Vault Interior", "keywords": ["vault interior", "vault floor", "safe deposit box", "boxes", "vault room", "inside vault", "vault wall"],
@@ -771,13 +774,168 @@ def get_section(panel):
 
 
 # ═══════════════════════════════════════════════════════════
+# AUTO-EXTRACT CHARACTERS FROM STORYBOARD
+# ═══════════════════════════════════════════════════════════
+# Runtime store for storyboard-extracted characters
+_dynamic_characters = {}
+
+# Clothing/appearance keywords that make good aliases
+_CLOTHING_WORDS = {
+    "suit", "jacket", "coat", "shirt", "vest", "hoodie", "coveralls", "uniform",
+    "boots", "shoes", "gloves", "hat", "cap", "glasses", "watch", "ring", "tie",
+    "turtleneck", "henley", "flannel", "corduroy", "trousers", "jeans", "pants",
+    "leather", "wool", "silk", "denim",
+}
+
+def auto_extract_characters(text):
+    """Parse CHARACTERS array from storyboard JSX, generate aliases from descriptions.
+    Returns dict compatible with engine CHARACTERS format."""
+    match = re.search(r'const\s+CHARACTERS\s*=\s*\[', text)
+    if not match:
+        return {}
+
+    start = match.end()
+    depth = 1
+    pos = start
+    while pos < len(text) and depth > 0:
+        if text[pos] == '[': depth += 1
+        elif text[pos] == ']': depth -= 1
+        pos += 1
+    chars_text = text[start:pos-1]
+
+    extracted = {}
+    for obj in _extract_objects(chars_text):
+        name_m = re.search(r'name:\s*"([^"]+)"', obj)
+        desc_m = re.search(r'desc:\s*"([^"]+)"', obj)
+        if not name_m or not desc_m:
+            continue
+
+        name = name_m.group(1)
+        desc = desc_m.group(1)
+        cid = _make_char_id(name)
+
+        aliases = _extract_aliases(name, desc)
+
+        # Build simple views from desc
+        base_desc = desc.split(". Mannequin: ")[-1] if ". Mannequin: " in desc else desc
+        views = {
+            "front": f"CHARACTER REFERENCE — FRONT VIEW. {base_desc} Light-toned smooth mannequin skin. Standing straight.",
+            "three_quarter": f"CHARACTER REFERENCE — 3/4 VIEW. {base_desc} Light-toned smooth mannequin skin. Slight turn.",
+            "action": f"CHARACTER REFERENCE — ACTION POSE. {base_desc} Light-toned smooth mannequin skin. In action.",
+        }
+
+        extracted[cid] = {
+            "name": name,
+            "alias": aliases,
+            "desc": desc,
+            "views": views,
+        }
+
+    return extracted
+
+
+def _make_char_id(name):
+    """Generate a short character ID from name."""
+    name_lower = name.lower()
+    # Known mappings
+    if "notarbartolo" in name_lower or "leonardo" in name_lower: return "leo"
+    if "monster" in name_lower: return "monster"
+    if "genius" in name_lower: return "genius"
+    if "speedy" in name_lower: return "speedy"
+    if "king of keys" in name_lower: return "king"
+    if "van camp" in name_lower: return "vancamp"
+    if "peys" in name_lower: return "peys"
+    if "guard" in name_lower or "security" in name_lower: return "guard"
+    # Fallback: first word
+    return re.sub(r'[^a-z0-9]', '', name_lower.split()[0])[:8]
+
+
+def _extract_aliases(name, desc):
+    """Generate detection aliases from character name and description."""
+    aliases = []
+
+    # Name parts
+    parts = re.split(r'[\s\(\)]+', name)
+    for p in parts:
+        p = p.strip()
+        if len(p) > 2 and p.lower() not in {"the", "and"}:
+            aliases.append(p)
+
+    # Multi-word name aliases
+    if "(" in name:
+        # "The Monster (Ferdinando Finotto)" → "The Monster", "Finotto"
+        before = name.split("(")[0].strip()
+        inside = name.split("(")[1].rstrip(")")
+        if before: aliases.append(before)
+        for w in inside.split():
+            if len(w) > 3: aliases.append(w)
+
+    # Clothing phrases from desc
+    # Split by commas and periods
+    phrases = re.split(r'[,\.]+', desc)
+    for phrase in phrases:
+        phrase = phrase.strip().lower()
+        # Check if phrase contains a clothing keyword
+        words = phrase.split()
+        if any(w in _CLOTHING_WORDS for w in words) and 2 <= len(words) <= 5:
+            aliases.append(phrase)
+
+    # Deduplicate preserving order
+    seen = set()
+    unique = []
+    for a in aliases:
+        key = a.lower().strip()
+        if key not in seen and len(key) > 2:
+            seen.add(key)
+            unique.append(a.strip())
+    return unique
+
+
+def load_dynamic_characters(storyboard_text):
+    """Extract characters from storyboard and merge with hardcoded defaults.
+    Call this at upload time."""
+    global _dynamic_characters
+    extracted = auto_extract_characters(storyboard_text)
+    if extracted:
+        # Start with hardcoded, overlay with extracted
+        merged = dict(CHARACTERS)
+        for cid, char in extracted.items():
+            if cid in merged:
+                # Merge aliases: keep hardcoded + add extracted
+                existing_aliases = set(a.lower() for a in merged[cid]["alias"])
+                new_aliases = list(merged[cid]["alias"])
+                for a in char["alias"]:
+                    if a.lower() not in existing_aliases:
+                        new_aliases.append(a)
+                        existing_aliases.add(a.lower())
+                merged[cid]["alias"] = new_aliases
+                # Update desc and views from storyboard (more specific)
+                merged[cid]["desc"] = char["desc"]
+                merged[cid]["views"] = char["views"]
+                merged[cid]["name"] = char["name"]
+            else:
+                # New character not in hardcoded
+                merged[cid] = char
+        _dynamic_characters = merged
+    else:
+        _dynamic_characters = dict(CHARACTERS)
+    return _dynamic_characters
+
+
+def get_active_characters():
+    """Return dynamic characters if loaded, else hardcoded."""
+    return _dynamic_characters if _dynamic_characters else CHARACTERS
+
+
+# ═══════════════════════════════════════════════════════════
 # CHARACTER + ENV DETECTION
 # ═══════════════════════════════════════════════════════════
 def detect_characters(prompt, vo=""):
     """Detect characters in prompt. Returns list of char IDs."""
     text = ((prompt or "") + " " + (vo or "")).lower()
+    chars = get_active_characters()
     found = []
-    for cid, c in CHARACTERS.items():
+    for cid, c in chars.items():
         for alias in c["alias"]:
             if alias.lower() in text:
                 if cid not in found:
@@ -812,9 +970,10 @@ def build_prompt(panel, char_id=None, env_id=None):
 
     # Character ref instruction (1 character only)
     char_str = ""
-    if char_id and char_id in CHARACTERS:
+    chars = get_active_characters()
+    if char_id and char_id in chars:
         char_str = (
-            f"SUBJECT CONSISTENCY: The character in this scene is {CHARACTERS[char_id]['name']}. "
+            f"SUBJECT CONSISTENCY: The character in this scene is {chars[char_id]['name']}. "
             f"Maintain strict visual consistency with the provided character reference image. "
             f"Match clothing, build, and appearance exactly. "
         )
@@ -903,17 +1062,25 @@ def get_active_model():
     return image_settings.get("model", "gemini-3.1-flash-image-preview")
 
 
-def gen_single(client, prompt, ref_paths=None):
+def gen_single(client, prompt, ref_paths=None, max_retries=3):
     contents = []
     if ref_paths:
         for rp in ref_paths:
             if Path(rp).exists():
                 contents.append(Image.open(rp))
     contents.append(prompt)
-    resp = client.models.generate_content(
-        model=get_active_model(), contents=contents, config=get_config()
-    )
-    return extract_image(resp)
+    for attempt in range(max_retries):
+        try:
+            resp = client.models.generate_content(
+                model=get_active_model(), contents=contents, config=get_config()
+            )
+            return extract_image(resp)
+        except Exception as e:
+            if "429" in str(e) and attempt < max_retries - 1:
+                wait = 30 * (attempt + 1)  # 30s, 60s, 90s
+                time.sleep(wait)
+                continue
+            raise
 
 
 def gen_chat_section(client, section_name, panels_data, callback=None):
@@ -961,7 +1128,22 @@ def gen_chat_section(client, section_name, panels_data, callback=None):
                     results[pid] = "warn"
                     if callback: callback("warn", pid, "No image returned")
             except Exception as e:
-                # Fallback to single shot
+                # Auto-retry on 429 before fallback
+                if "429" in str(e):
+                    if callback: callback("log", f"Rate limited on {pid}, waiting 45s...", "warn")
+                    time.sleep(45)
+                    try:
+                        resp = chat.send_message(contents)
+                        img = extract_image(resp)
+                        if img:
+                            out.write_bytes(img)
+                            results[pid] = "ok"
+                            if callback: callback("ok", pid)
+                            time.sleep(4)
+                            continue
+                    except:
+                        pass
+                # Fallback to single shot (has its own retry)
                 try:
                     img = gen_single(client, pd["prompt"], pd.get("refs"))
                     if img:
@@ -974,8 +1156,6 @@ def gen_chat_section(client, section_name, panels_data, callback=None):
                 except Exception as e2:
                     results[pid] = "fail"
                     if callback: callback("fail", pid, str(e2)[:80])
-                    if "429" in str(e2):
-                        time.sleep(30)
 
             time.sleep(4)
 
