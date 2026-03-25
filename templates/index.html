@@ -23,10 +23,9 @@
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{height:100%;background:var(--bg)}
 body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--t);height:100%;display:flex;flex-direction:column;-webkit-text-size-adjust:100%}
-.app{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 120px}
 .mono{font-family:'Geist Mono',monospace}
 
-/* Header */
+/* ═══ LAYOUT ═══ */
 .hdr{position:sticky;top:0;z-index:100;background:rgba(9,9,11,.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--bdr);padding:14px 16px;display:flex;align-items:center;gap:12px}
 .hdr-i{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--m),var(--v));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#000;flex-shrink:0}
 .hdr h1{font-size:17px;font-weight:700;letter-spacing:-.02em}
@@ -37,7 +36,32 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 .dot.on{background:var(--m);box-shadow:0 0 8px rgba(52,211,153,.5);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-/* Labels */
+/* Main scroll area */
+.app{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 120px}
+
+/* ═══ DESKTOP LAYOUT ═══ */
+.desk-wrap{display:flex;gap:0}
+.desk-side{display:none}
+.desk-main{flex:1;min-width:0}
+
+@media(min-width:1024px){
+  .hdr{padding:14px 32px}
+  .app{padding:0 32px 40px;overflow-y:auto}
+  .desk-wrap{display:flex;gap:24px;align-items:flex-start}
+  .desk-side{display:block;width:300px;flex-shrink:0;position:sticky;top:0;max-height:calc(100vh - 80px);overflow-y:auto;padding:20px 0}
+  .desk-side::-webkit-scrollbar{width:3px}
+  .desk-side::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+  .desk-main{flex:1;min-width:0;padding:20px 0}
+  .bbar{display:none!important}
+  .mobile-only{display:none!important}
+  /* Wider grids */
+  .gal{grid-template-columns:repeat(4,1fr)!important}
+  .gal-env{grid-template-columns:repeat(3,1fr)!important}
+  .sec-imgs{grid-template-columns:repeat(4,1fr)!important}
+  .stats{flex-wrap:nowrap}
+}
+
+/* ═══ COMPONENTS ═══ */
 .lbl{font-family:'Geist Mono',monospace;font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:1.2px;margin:24px 0 10px;display:flex;align-items:center;gap:8px}
 .lbl::after{content:'';flex:1;height:1px;background:var(--bdr)}
 
@@ -59,7 +83,8 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 /* Upload */
 .upload{border:1.5px dashed var(--bdr2);border-radius:16px;padding:30px 20px;text-align:center;cursor:pointer;background:var(--sf);transition:.25s;position:relative;overflow:hidden}
 .upload::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,var(--mbg),transparent 70%);opacity:0;transition:.3s}
-.upload:active::before{opacity:1}.upload:active{border-color:var(--m)}
+.upload:active::before,.upload:hover::before{opacity:1}
+.upload:active,.upload:hover{border-color:var(--m)}
 .upload.ok{border-color:var(--m);border-style:solid}.upload.ok::before{opacity:.4}
 .upload h3{font-size:15px;font-weight:600;position:relative}
 .upload p{font-size:11px;color:var(--t2);margin-top:4px;position:relative}
@@ -81,30 +106,29 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 .warn-list.open{max-height:300px;overflow-y:auto}
 .warn-item{font-family:'Geist Mono',monospace;font-size:10px;color:var(--t2);padding:6px 0;border-bottom:1px solid var(--bdr);line-height:1.5}
 
-/* Gallery grid */
+/* Galleries */
 .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
-.gal-item{position:relative;border-radius:8px;overflow:hidden;background:var(--sf);aspect-ratio:1/1;cursor:pointer}
+.gal-item{position:relative;border-radius:8px;overflow:hidden;background:var(--sf);aspect-ratio:1/1;cursor:pointer;transition:.2s}
+.gal-item:hover{border-color:var(--m);transform:scale(1.02)}
 .gal-item img{width:100%;height:100%;object-fit:cover;display:block}
 .gal-item .gal-lbl{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);padding:3px 6px;font-family:'Geist Mono',monospace;font-size:8px;color:var(--t2);text-align:center}
 .gal-item.empty{display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--t3);font-family:'Geist Mono',monospace;border:1px dashed var(--bdr)}
-
-/* Env gallery - wider items */
 .gal-env{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .gal-env .gal-item{aspect-ratio:16/9}
 
 /* Pipeline tracker */
-.pipe{display:flex;gap:3px;align-items:center;margin-bottom:6px}
-.pipe-s{flex:1;height:4px;border-radius:2px;background:var(--sf);transition:.3s;position:relative}
+.pipe{display:flex;gap:3px;margin-bottom:6px}
+.pipe-s{flex:1;height:4px;border-radius:2px;background:var(--sf);transition:.3s}
 .pipe-s.done{background:var(--m)}
 .pipe-s.active{background:var(--a);animation:shimmer2 1.5s infinite}
 @keyframes shimmer2{0%,100%{opacity:1}50%{opacity:.5}}
 .pipe-labels{display:flex;justify-content:space-between;margin-bottom:12px}
 .pipe-labels span{font-family:'Geist Mono',monospace;font-size:8px;color:var(--t3);text-transform:uppercase}
 .pipe-labels span.done{color:var(--m)}
-.pipe-labels span.active{color:var(--a)}
 
 /* Section cards */
 .sec-card{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:14px 16px;margin-bottom:8px;transition:.2s}
+.sec-card:hover{border-color:var(--bdr2)}
 .sec-card.done{border-color:var(--mbd)}
 .sec-head{display:flex;align-items:center;justify-content:space-between}
 .sec-head h4{font-size:14px;font-weight:700;flex:1;margin-right:8px}
@@ -114,11 +138,12 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 .sec-prog-fill{height:100%;background:var(--m);border-radius:2px;transition:width .4s}
 .sec-actions{display:flex;gap:6px;margin-top:10px}
 .sec-btn{flex:1;padding:9px;border-radius:8px;border:none;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
-.sec-btn:active{transform:scale(.96)}
+.sec-btn:active,.sec-btn:hover{transform:scale(.97)}
 .sec-btn.gen{background:var(--m);color:#000}
 .sec-btn.redo{background:var(--sf);color:var(--t2);border:1px solid var(--bdr)}
 .sec-imgs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px;border-radius:8px;overflow:hidden}
-.sec-imgs img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--sf);display:block;cursor:pointer}
+.sec-imgs img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--sf);display:block;cursor:pointer;transition:.15s}
+.sec-imgs img:hover{opacity:.8}
 .sec-imgs .ph{width:100%;aspect-ratio:16/9;background:var(--sf);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--t3);font-family:'Geist Mono',monospace}
 
 /* Redo */
@@ -138,7 +163,15 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 .log::-webkit-scrollbar{width:3px}.log::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
 .log .ok{color:var(--m)}.log .fail{color:var(--r)}.log .warn{color:var(--a)}.log .head{color:var(--v);font-weight:600}
 
-/* Bottom bar */
+/* Desktop sidebar controls */
+.side-btn{width:100%;padding:12px 16px;border-radius:10px;border:none;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s;margin-bottom:6px}
+.side-btn:hover{transform:scale(.98)}
+.side-btn.primary{background:var(--m);color:#000}
+.side-btn.danger{background:var(--rbg);color:var(--r)}
+.side-btn.secondary{background:var(--card);color:var(--t2);border:1px solid var(--bdr)}
+.side-btn .ico{font-size:16px}
+
+/* Bottom bar (mobile only) */
 .bbar{position:fixed;bottom:0;left:0;right:0;background:rgba(9,9,11,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--bdr);padding:10px 16px calc(10px + var(--sb));z-index:100;display:flex;gap:8px}
 .bbar button{flex:1;padding:14px 8px;border-radius:12px;border:none;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:.15s}
 .bbar button:active{transform:scale(.95)}
@@ -155,18 +188,18 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 .pv-id{font-family:'Geist Mono',monospace;font-size:12px;color:var(--t2)}
 
 /* Toast */
-.toast{position:fixed;top:66px;left:16px;right:16px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;z-index:200;transform:translateY(-16px);opacity:0;transition:.3s;pointer-events:none}
-.toast.show{transform:none;opacity:1}.toast.success{border-color:var(--mbd);color:var(--m)}.toast.error{border-color:rgba(248,113,113,.2);color:var(--r)}
+.toast{position:fixed;top:66px;left:50%;transform:translateX(-50%) translateY(-16px);background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:12px 24px;font-size:13px;font-weight:500;z-index:200;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) none;opacity:1}
+.toast.success{border-color:var(--mbd);color:var(--m)}.toast.error{border-color:rgba(248,113,113,.2);color:var(--r)}
 
 /* Collapsible */
-.collapse-h{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 0}
-.collapse-h .ch{font-size:10px;color:var(--t3);transition:.3s}
-.collapse-h.open .ch{transform:rotate(180deg)}
-.collapse-b{max-height:0;overflow:hidden;transition:max-height .35s ease}
-.collapse-b.open{max-height:2000px;overflow-y:auto}
+.col-h{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 0}
+.col-h .ch{font-size:10px;color:var(--t3);transition:.3s}
+.col-h.open .ch{transform:rotate(180deg)}
+.col-b{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.col-b.open{max-height:2000px;overflow-y:auto}
 
 .hidden{display:none!important}
-@media(min-width:768px){.app{max-width:480px;margin:0 auto}.bbar{max-width:480px;left:50%;transform:translateX(-50%)}.hdr{max-width:480px;margin:0 auto}}
 </style>
 </head>
 <body>
@@ -178,101 +211,167 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
   <div class="pv-id" id="pvId"></div>
 </div>
 
+<!-- HEADER -->
 <div class="hdr">
   <div class="hdr-i">S</div>
   <div><h1>Storyboard Engine</h1><small>v9 · cloud · 7-layer</small></div>
   <div class="hdr-r"><span id="statusText">Ready</span><div class="dot" id="dot"></div></div>
 </div>
 
+<!-- MAIN -->
 <div class="app" id="app">
 
-  <!-- CONFIG -->
-  <div class="lbl">Config</div>
-  <div class="cfg-t" id="cfgT" onclick="toggleCfg()"><h3>⚙ Settings</h3><span class="ch">▼</span></div>
-  <div class="cfg-b" id="cfgB">
-    <div class="cfg-in">
-      <div class="fld"><label>Gemini API Key</label><input type="password" id="apiKey" placeholder="Paste key" value="{{ saved_key }}"></div>
-      <div class="fld"><label>Visual Style</label><select id="style" onchange="saveCfg()">{% for p in presets %}<option value="{{ p }}" {{ 'selected' if p == saved_style }}>{{ p }}</option>{% endfor %}<option value="Custom">Custom</option></select></div>
-      <div class="row2">
-        <div class="fld"><label>Resolution</label><select id="resolution" onchange="saveCfg()">{% for r in resolutions %}<option value="{{ r }}" {{ 'selected' if r == saved_res }}>{{ r }}</option>{% endfor %}</select></div>
-        <div class="fld"><label>Aspect Ratio</label><select id="ar" onchange="saveCfg()">{% for a in ar_options %}<option value="{{ a }}" {{ 'selected' if a == saved_ar }}>{{ a }}</option>{% endfor %}</select></div>
+  <!-- Desktop: sidebar + main. Mobile: stacked -->
+  <div class="desk-wrap">
+
+    <!-- ═══ SIDEBAR (desktop only) ═══ -->
+    <div class="desk-side" id="sidebar">
+      <!-- Config -->
+      <div class="cfg-t" id="cfgT" onclick="toggleCfg()"><h3>⚙ Settings</h3><span class="ch">▼</span></div>
+      <div class="cfg-b" id="cfgB">
+        <div class="cfg-in">
+          <div class="fld"><label>API Key</label><input type="password" id="apiKeyD" placeholder="Paste key" value="{{ saved_key }}"></div>
+          <div class="fld"><label>Style</label><select id="styleD" onchange="saveCfg()">{% for p in presets %}<option value="{{ p }}" {{ 'selected' if p == saved_style }}>{{ p }}</option>{% endfor %}<option value="Custom">Custom</option></select></div>
+          <div class="row2">
+            <div class="fld"><label>Resolution</label><select id="resD" onchange="saveCfg()">{% for r in resolutions %}<option value="{{ r }}" {{ 'selected' if r == saved_res }}>{{ r }}</option>{% endfor %}</select></div>
+            <div class="fld"><label>Ratio</label><select id="arD" onchange="saveCfg()">{% for a in ar_options %}<option value="{{ a }}" {{ 'selected' if a == saved_ar }}>{{ a }}</option>{% endfor %}</select></div>
+          </div>
+          <div class="fld"><label>Model</label><select id="modelD" onchange="saveCfg()">{% for m in model_options %}<option value="{{ m }}" {{ 'selected' if m == saved_model }}>{{ m }}</option>{% endfor %}</select></div>
+        </div>
       </div>
-      <div class="fld"><label>AI Model</label><select id="model" onchange="saveCfg()">{% for m in model_options %}<option value="{{ m }}" {{ 'selected' if m == saved_model }}>{{ m }}</option>{% endfor %}</select></div>
+
+      <!-- Upload -->
+      <div style="margin-top:12px">
+        <div class="upload" id="dropZoneD" onclick="document.getElementById('fileInputD').click()">
+          <div class="ico" id="upIcoD">⬆</div>
+          <h3 id="fileNameD">Load Storyboard</h3>
+          <p>Click or drag file</p>
+          <input type="file" id="fileInputD" accept="*/*">
+        </div>
+      </div>
+
+      <!-- Pipeline tracker -->
+      <div class="hidden" id="pipeSectionD" style="margin-top:16px">
+        <div class="lbl" style="margin-top:12px">Pipeline</div>
+        <div class="pipe" id="pipeBarD"></div>
+        <div class="pipe-labels" id="pipeLabelsD"></div>
+      </div>
+
+      <!-- Desktop buttons -->
+      <div class="hidden" id="deskBtns" style="margin-top:8px">
+        <button class="side-btn primary" onclick="runFull()" id="bbMainD"><span class="ico">▶</span> Generate All</button>
+        <button class="side-btn danger hidden" onclick="stopRun()" id="bbStopD"><span class="ico">■</span> Stop</button>
+        <button class="side-btn secondary" onclick="run('export')"><span class="ico">↗</span> Export</button>
+      </div>
+
+      <!-- Redo -->
+      <div class="hidden" id="redoSectionD" style="margin-top:12px">
+        <div class="lbl" style="margin-top:8px">Redo Panel</div>
+        <div class="redo-row">
+          <input type="text" id="redoInputD" placeholder="S3-P09">
+          <button class="redo-btn" onclick="redoPanel()">Redo</button>
+        </div>
+      </div>
+
+      <!-- Progress + Log -->
+      <div class="prog"><div class="prog-bar"><div class="prog-fill" id="progFillD"></div></div><div class="prog-text" id="progTextD"></div></div>
+      <div class="log" id="logD" style="margin-top:8px;max-height:300px"></div>
+    </div>
+
+    <!-- ═══ MAIN CONTENT ═══ -->
+    <div class="desk-main">
+
+      <!-- Mobile config (hidden on desktop) -->
+      <div class="mobile-only">
+        <div class="lbl">Config</div>
+        <div class="cfg-t" id="cfgTM" onclick="toggleCfgM()"><h3>⚙ Settings</h3><span class="ch">▼</span></div>
+        <div class="cfg-b" id="cfgBM">
+          <div class="cfg-in">
+            <div class="fld"><label>API Key</label><input type="password" id="apiKey" placeholder="Paste key" value="{{ saved_key }}"></div>
+            <div class="fld"><label>Style</label><select id="style" onchange="saveCfg()">{% for p in presets %}<option value="{{ p }}" {{ 'selected' if p == saved_style }}>{{ p }}</option>{% endfor %}<option value="Custom">Custom</option></select></div>
+            <div class="row2">
+              <div class="fld"><label>Resolution</label><select id="resolution" onchange="saveCfg()">{% for r in resolutions %}<option value="{{ r }}" {{ 'selected' if r == saved_res }}>{{ r }}</option>{% endfor %}</select></div>
+              <div class="fld"><label>Ratio</label><select id="ar" onchange="saveCfg()">{% for a in ar_options %}<option value="{{ a }}" {{ 'selected' if a == saved_ar }}>{{ a }}</option>{% endfor %}</select></div>
+            </div>
+            <div class="fld"><label>Model</label><select id="model" onchange="saveCfg()">{% for m in model_options %}<option value="{{ m }}" {{ 'selected' if m == saved_model }}>{{ m }}</option>{% endfor %}</select></div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="upload" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <div class="ico" id="upIco">⬆</div>
+            <h3 id="fileName">Load Storyboard</h3>
+            <p>Tap to select file</p>
+            <input type="file" id="fileInput" accept="*/*">
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="hidden" id="statsSection">
+        <div class="lbl">Overview</div>
+        <div class="stats" id="statsGrid"></div>
+      </div>
+
+      <!-- Warnings -->
+      <div class="hidden" id="warnSection" style="margin-top:10px">
+        <button class="warn-btn" onclick="toggleWarns()"><div class="wd"></div><span id="warnText"></span><span style="margin-left:auto;font-size:10px" id="warnChv">▼</span></button>
+        <div class="warn-list" id="warnList"></div>
+      </div>
+
+      <!-- Pipeline (mobile) -->
+      <div class="hidden mobile-only" id="pipeSection">
+        <div class="lbl">Pipeline</div>
+        <div class="pipe" id="pipeBar"></div>
+        <div class="pipe-labels" id="pipeLabels"></div>
+      </div>
+
+      <!-- Characters -->
+      <div class="hidden" id="charSection">
+        <div class="col-h open" onclick="toggleCol('charBody',this)">
+          <div class="lbl" style="margin:0;flex:1">Characters <span id="charCount" style="color:var(--m)"></span></div>
+          <span class="ch">▼</span>
+        </div>
+        <div class="col-b open" id="charBody">
+          <div id="charGal" class="gal"></div>
+        </div>
+      </div>
+
+      <!-- Environments -->
+      <div class="hidden" id="envSection">
+        <div class="col-h open" onclick="toggleCol('envBody',this)">
+          <div class="lbl" style="margin:0;flex:1">Environments <span id="envCount" style="color:var(--a)"></span></div>
+          <span class="ch">▼</span>
+        </div>
+        <div class="col-b open" id="envBody">
+          <div id="envGal" class="gal-env"></div>
+        </div>
+      </div>
+
+      <!-- Sections -->
+      <div class="hidden" id="secSection">
+        <div class="lbl">Sections</div>
+        <div id="secList"></div>
+      </div>
+
+      <!-- Redo (mobile) -->
+      <div class="hidden mobile-only" id="redoSection">
+        <div class="lbl">Redo Single Panel</div>
+        <div class="redo-row">
+          <input type="text" id="redoInput" placeholder="e.g. S3-P09">
+          <button class="redo-btn" onclick="redoPanel()">Redo</button>
+        </div>
+      </div>
+
+      <!-- Progress + Log (mobile) -->
+      <div class="mobile-only">
+        <div class="prog"><div class="prog-bar"><div class="prog-fill" id="progFill"></div></div><div class="prog-text" id="progText"></div></div>
+        <div class="log" id="log"></div>
+      </div>
     </div>
   </div>
-
-  <!-- UPLOAD -->
-  <div style="margin-top:12px">
-    <div class="upload" id="dropZone" onclick="document.getElementById('fileInput').click()">
-      <div class="ico" id="upIco">⬆</div>
-      <h3 id="fileName">Load Storyboard</h3>
-      <p>Tap to select file</p>
-      <input type="file" id="fileInput" accept="*/*">
-    </div>
-  </div>
-
-  <!-- STATS -->
-  <div class="hidden" id="statsSection">
-    <div class="lbl">Overview</div>
-    <div class="stats" id="statsGrid"></div>
-  </div>
-
-  <!-- WARNINGS -->
-  <div class="hidden" id="warnSection" style="margin-top:10px">
-    <button class="warn-btn" onclick="toggleWarns()"><div class="wd"></div><span id="warnText"></span><span style="margin-left:auto;font-size:10px" id="warnChv">▼</span></button>
-    <div class="warn-list" id="warnList"></div>
-  </div>
-
-  <!-- PIPELINE TRACKER -->
-  <div class="hidden" id="pipeSection">
-    <div class="lbl">Pipeline</div>
-    <div class="pipe" id="pipeBar"></div>
-    <div class="pipe-labels" id="pipeLabels"></div>
-  </div>
-
-  <!-- CHARACTERS GALLERY -->
-  <div class="hidden" id="charSection">
-    <div class="collapse-h" onclick="toggleCollapse('charBody',this)">
-      <div class="lbl" style="margin:0;flex:1">Characters <span id="charCount" style="color:var(--m)"></span></div>
-      <span class="ch">▼</span>
-    </div>
-    <div class="collapse-b" id="charBody">
-      <div id="charGal" class="gal"></div>
-    </div>
-  </div>
-
-  <!-- ENVIRONMENTS GALLERY -->
-  <div class="hidden" id="envSection">
-    <div class="collapse-h" onclick="toggleCollapse('envBody',this)">
-      <div class="lbl" style="margin:0;flex:1">Environments <span id="envCount" style="color:var(--a)"></span></div>
-      <span class="ch">▼</span>
-    </div>
-    <div class="collapse-b" id="envBody">
-      <div id="envGal" class="gal-env"></div>
-    </div>
-  </div>
-
-  <!-- SECTIONS -->
-  <div class="hidden" id="secSection">
-    <div class="lbl">Sections</div>
-    <div id="secList"></div>
-  </div>
-
-  <!-- REDO -->
-  <div class="hidden" id="redoSection">
-    <div class="lbl">Redo Single Panel</div>
-    <div class="redo-row">
-      <input type="text" id="redoInput" placeholder="e.g. S3-P09">
-      <button class="redo-btn" onclick="redoPanel()">Redo</button>
-    </div>
-  </div>
-
-  <!-- PROGRESS + LOG -->
-  <div class="prog"><div class="prog-bar"><div class="prog-fill" id="progFill"></div></div><div class="prog-text" id="progText"></div></div>
-  <div class="log" id="log"></div>
 </div>
 
-<!-- BOTTOM BAR -->
+<!-- Bottom bar (mobile only) -->
 <div class="bbar">
   <button class="b-main" onclick="runFull()" id="bbMain"><span class="b-ico">▶</span><span class="b-lbl">Generate All</span></button>
   <button class="b-stop hidden" onclick="stopRun()" id="bbStop"><span class="b-ico">■</span><span class="b-lbl">Stop</span></button>
@@ -281,27 +380,41 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 
 <script>
 const $=id=>document.getElementById(id);
+const isDesk=()=>window.innerWidth>=1024;
 let isRunning=false,currentRunStep='',warnings=[],sectionData=[],pipeState={};
-const STEPS=['chars','envs','scenes','grade'];
 
 function toast(m,t='success'){const e=$('toast');e.textContent=m;e.className='toast show '+t;setTimeout(()=>e.className='toast',3000)}
 function toggleCfg(){$('cfgT').classList.toggle('open');$('cfgB').classList.toggle('open')}
+function toggleCfgM(){$('cfgTM').classList.toggle('open');$('cfgBM').classList.toggle('open')}
 function toggleWarns(){$('warnList').classList.toggle('open');$('warnChv').textContent=$('warnList').classList.contains('open')?'▲':'▼'}
-function toggleCollapse(id,el){$(id).classList.toggle('open');el.classList.toggle('open')}
+function toggleCol(id,el){$(id).classList.toggle('open');el.classList.toggle('open')}
 function openPv(src,label){$('pvImg').src=src;$('pvId').textContent=label;$('pv').classList.add('show')}
 function closePv(){$('pv').classList.remove('show')}
 
-// Upload
-$('fileInput').addEventListener('change',async e=>{
-  const file=e.target.files[0];if(!file)return;
-  $('fileName').textContent=file.name;$('upIco').textContent='✓';$('dropZone').classList.add('ok');
-  await saveCfg();
+// Sync desktop/mobile form fields
+function syncFields(){
+  const pairs=[['apiKey','apiKeyD'],['style','styleD'],['resolution','resD'],['ar','arD'],['model','modelD']];
+  pairs.forEach(([m,d])=>{
+    if($(m)&&$(d)){
+      if(isDesk()) $(m).value=$(d).value;
+      else $(d).value=$(m).value;
+    }
+  });
+}
+
+// Upload handler (shared)
+async function handleUpload(file){
+  // Update both UIs
+  ['fileName','fileNameD'].forEach(id=>{if($(id))$(id).textContent=file.name});
+  ['upIco','upIcoD'].forEach(id=>{if($(id))$(id).textContent='✓'});
+  ['dropZone','dropZoneD'].forEach(id=>{if($(id))$(id).classList.add('ok')});
+  syncFields(); await saveCfg();
+
   const form=new FormData();form.append('storyboard',file);
   const res=await fetch('/api/upload',{method:'POST',body:form});
   const data=await res.json();
   if(data.error){toast(data.error,'error');return}
 
-  // Stats
   $('statsGrid').innerHTML=[
     {v:data.total,l:'Panels',c:'var(--t)',s:''},
     {v:data.noir,l:'Noir',c:'var(--m)',s:'m'},
@@ -311,7 +424,6 @@ $('fileInput').addEventListener('change',async e=>{
   ].map(s=>`<div class="stat ${s.s}"><div class="stat-n" style="color:${s.c}">${s.v}</div><div class="stat-l">${s.l}</div></div>`).join('');
   $('statsSection').classList.remove('hidden');
 
-  // Warnings
   warnings=data.warnings||[];
   if(warnings.length){
     $('warnText').textContent=`${warnings.length} warning${warnings.length>1?'s':''}`;
@@ -320,81 +432,80 @@ $('fileInput').addEventListener('change',async e=>{
   }
 
   sectionData=data.sections;
-  $('secSection').classList.remove('hidden');
-  $('redoSection').classList.remove('hidden');
-  $('pipeSection').classList.remove('hidden');
-  $('charSection').classList.remove('hidden');
-  $('envSection').classList.remove('hidden');
-  $('cfgT').classList.remove('open');$('cfgB').classList.remove('open');
+  ['secSection','charSection','envSection','pipeSection','pipeSectionD','redoSection','redoSectionD','deskBtns'].forEach(id=>{if($(id))$(id).classList.remove('hidden')});
+  // Close config
+  ['cfgT','cfgTM'].forEach(id=>{if($(id))$(id).classList.remove('open')});
+  ['cfgB','cfgBM'].forEach(id=>{if($(id))$(id).classList.remove('open')});
 
   toast(`Loaded ${data.total} panels`);
   addLog(`Loaded: ${data.total} panels | Generate: ${data.gen_count}`,'head');
-
-  // Load pipeline state from disk
   refreshPipeline();
+}
+
+// Bind both file inputs
+['fileInput','fileInputD'].forEach(id=>{
+  const el=$(id);if(el) el.addEventListener('change',e=>{const f=e.target.files[0];if(f)handleUpload(f)});
+});
+// Drag on both zones
+['dropZone','dropZoneD'].forEach(id=>{
+  const dz=$(id);if(!dz)return;
+  ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>ev.preventDefault()));
+  dz.addEventListener('drop',e=>{e.preventDefault();const input=$(id==='dropZone'?'fileInput':'fileInputD');input.files=e.dataTransfer.files;input.dispatchEvent(new Event('change'))});
 });
 
-// Refresh all galleries and pipeline status from disk
 async function refreshPipeline(){
   try{
     const res=await fetch('/api/pipeline_status');
-    const d=await res.json();
-    pipeState=d;
-    renderPipeTracker(d);
-    renderCharGallery(d.chars||[]);
-    renderEnvGallery(d.envs||[]);
-    renderSections(d);
-    loadPreviews();
+    const d=await res.json();pipeState=d;
+    renderPipeTracker(d);renderCharGallery(d.chars||[]);renderEnvGallery(d.envs||[]);renderSections(d);loadPreviews();
   }catch(e){}
 }
 
 function renderPipeTracker(d){
-  const charsDone=d.chars&&d.chars.length>0&&d.chars.every(c=>c.front&&c.three_quarter&&c.action);
-  const envsDone=d.envs&&d.envs.length>0&&d.envs.every(e=>e.env&&e.master);
-  const scenesDone=d.scenes_total>0&&d.scenes_done>=d.scenes_total;
-  const gradeDone=d.graded>0&&d.graded>=d.scenes_total;
-
+  const cd=d.chars&&d.chars.length>0&&d.chars.every(c=>c.front&&c.three_quarter&&c.action);
+  const ed=d.envs&&d.envs.length>0&&d.envs.every(e=>e.env&&e.master);
+  const sd=d.scenes_total>0&&d.scenes_done>=d.scenes_total;
+  const gd=d.graded>0&&d.graded>=d.scenes_total;
   const steps=[
-    {k:'chars',l:'Chars',done:charsDone},
-    {k:'envs',l:'Envs+Masters',done:envsDone},
-    {k:'scenes',l:`Scenes ${d.scenes_done||0}/${d.scenes_total||0}`,done:scenesDone},
-    {k:'grade',l:'Grade',done:gradeDone},
+    {l:'Chars',done:cd},{l:'Envs',done:ed},
+    {l:`Scenes ${d.scenes_done||0}/${d.scenes_total||0}`,done:sd},{l:'Grade',done:gd}
   ];
+  const barH=steps.map(s=>`<div class="pipe-s ${s.done?'done':''}"></div>`).join('');
+  const lblH=steps.map(s=>`<span class="${s.done?'done':''}">${s.l}</span>`).join('');
+  ['pipeBar','pipeBarD'].forEach(id=>{if($(id))$(id).innerHTML=barH});
+  ['pipeLabels','pipeLabelsD'].forEach(id=>{if($(id))$(id).innerHTML=lblH});
 
-  $('pipeBar').innerHTML=steps.map(s=>`<div class="pipe-s ${s.done?'done':''}"></div>`).join('');
-  $('pipeLabels').innerHTML=steps.map(s=>`<span class="${s.done?'done':''}">${s.l}</span>`).join('');
-
-  // Update main button
-  if(gradeDone) $('bbMain').querySelector('.b-lbl').textContent='Export ↗';
-  else if(scenesDone) $('bbMain').querySelector('.b-lbl').textContent='Grade + Export';
-  else $('bbMain').querySelector('.b-lbl').textContent='Generate All';
+  const lbl=gd?'Export ↗':sd?'Grade + Export':'Generate All';
+  ['bbMain','bbMainD'].forEach(id=>{
+    const el=$(id);if(!el)return;
+    const s=el.querySelector('.b-lbl')||el;
+    if(el.querySelector('.b-lbl')) el.querySelector('.b-lbl').textContent=lbl;
+    else el.innerHTML=`<span class="ico">▶</span> ${lbl}`;
+  });
 }
 
 function renderCharGallery(chars){
-  if(!chars.length){$('charGal').innerHTML='';return}
+  if(!chars.length)return;
   const done=chars.filter(c=>c.front).length;
   $('charCount').textContent=`${done}/${chars.length}`;
-  $('charGal').innerHTML=chars.map(c=>{
-    const views=['front','three_quarter','action'];
-    return views.map(v=>{
-      const ok=c[v];
-      if(ok) return `<div class="gal-item" onclick="event.stopPropagation();openPv('/api/ref/char_${v==='three_quarter'?'tq':v}/${c.id}','@${c.id} ${v}')"><img src="/api/ref/char_${v==='three_quarter'?'tq':v}/${c.id}" loading="lazy"><div class="gal-lbl">@${c.id} ${v==='three_quarter'?'¾':v==='front'?'F':'A'}</div></div>`;
-      return `<div class="gal-item empty">@${c.id}<br>${v==='three_quarter'?'¾':v==='front'?'F':'A'}</div>`;
-    }).join('');
-  }).join('');
+  $('charGal').innerHTML=chars.map(c=>
+    ['front','three_quarter','action'].map(v=>{
+      const k=v==='three_quarter'?'tq':v;
+      const label=v==='three_quarter'?'¾':v==='front'?'Front':'Action';
+      if(c[v]) return `<div class="gal-item" onclick="event.stopPropagation();openPv('/api/ref/char_${k}/${c.id}','@${c.id} ${label}')"><img src="/api/ref/char_${k}/${c.id}" loading="lazy"><div class="gal-lbl">@${c.id} ${label}</div></div>`;
+      return `<div class="gal-item empty">@${c.id}<br>${label}</div>`;
+    }).join('')
+  ).join('');
 }
 
 function renderEnvGallery(envs){
-  if(!envs.length){$('envGal').innerHTML='';return}
-  const done=envs.filter(e=>e.env).length;
-  $('envCount').textContent=`${done}/${envs.length}`;
+  if(!envs.length)return;
+  $('envCount').textContent=`${envs.filter(e=>e.env).length}/${envs.length}`;
   $('envGal').innerHTML=envs.map(e=>{
-    let html='';
-    if(e.env) html+=`<div class="gal-item" onclick="event.stopPropagation();openPv('/api/ref/env/${e.id}','${e.name}')"><img src="/api/ref/env/${e.id}" loading="lazy"><div class="gal-lbl">${e.name}</div></div>`;
-    else html+=`<div class="gal-item empty">${e.name}</div>`;
-    if(e.master) html+=`<div class="gal-item" onclick="event.stopPropagation();openPv('/api/ref/master/${e.id}','${e.name} master')"><img src="/api/ref/master/${e.id}" loading="lazy"><div class="gal-lbl">${e.name} ★</div></div>`;
-    else html+=`<div class="gal-item empty">${e.name} ★</div>`;
-    return html;
+    let h='';
+    h+=e.env?`<div class="gal-item" onclick="event.stopPropagation();openPv('/api/ref/env/${e.id}','${e.name}')"><img src="/api/ref/env/${e.id}" loading="lazy"><div class="gal-lbl">${e.name}</div></div>`:`<div class="gal-item empty">${e.name}</div>`;
+    h+=e.master?`<div class="gal-item" onclick="event.stopPropagation();openPv('/api/ref/master/${e.id}','${e.name} ★')"><img src="/api/ref/master/${e.id}" loading="lazy"><div class="gal-lbl">${e.name} ★</div></div>`:`<div class="gal-item empty">${e.name} ★</div>`;
+    return h;
   }).join('');
 }
 
@@ -419,73 +530,83 @@ async function loadPreviews(){
     if(!data.panels)return;
     sectionData.forEach((sec,si)=>{
       const grid=$('imgs-'+si);if(!grid)return;
-      const secPanels=Object.entries(data.panels).filter(([pid])=>pid.startsWith('S'+(si+1)+'-'));
-      const donePanels=secPanels.filter(([_,v])=>v.done);
-      if(!donePanels.length){grid.innerHTML='';return}
-      const show=donePanels.slice(0,6);
+      const sp=Object.entries(data.panels).filter(([pid])=>pid.startsWith('S'+(si+1)+'-'));
+      const dp=sp.filter(([_,v])=>v.done);
+      if(!dp.length){grid.innerHTML='';return}
+      const show=dp.slice(0,isDesk()?8:6);
       grid.innerHTML=show.map(([pid])=>`<img src="/api/preview/${pid}" loading="lazy" onclick="event.stopPropagation();openPv('/api/preview/${pid}','${pid}')">`).join('');
-      if(donePanels.length>6) grid.innerHTML+=`<div class="ph">+${donePanels.length-6}</div>`;
-      // Update section done count
-      sectionData[si].done=donePanels.length;
+      if(dp.length>show.length) grid.innerHTML+=`<div class="ph">+${dp.length-show.length}</div>`;
+      sectionData[si].done=dp.length;
     });
   }catch(e){}
 }
 
-// Drag
-const dz=$('dropZone');
-['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault()}));
-dz.addEventListener('drop',e=>{e.preventDefault();$('fileInput').files=e.dataTransfer.files;$('fileInput').dispatchEvent(new Event('change'))});
-
 // Settings
 async function saveCfg(){
+  syncFields();
+  const key=$('apiKey')?.value||$('apiKeyD')?.value||'';
+  const style=$('style')?.value||$('styleD')?.value||'';
+  const res=$('resolution')?.value||$('resD')?.value||'';
+  const ar=$('ar')?.value||$('arD')?.value||'';
+  const mdl=$('model')?.value||$('modelD')?.value||'';
   await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({api_key:$('apiKey').value,style:$('style').value,resolution:$('resolution').value,aspect_ratio:$('ar').value,model:$('model').value})});
+    body:JSON.stringify({api_key:key,style:style,resolution:res,aspect_ratio:ar,model:mdl})});
 }
 
 // Run
 async function run(step,section){
   if(isRunning){toast('Already running','error');return}
-  if(!$('apiKey').value){toast('Enter API key first','error');toggleCfg();$('cfgT').classList.add('open');$('cfgB').classList.add('open');return}
+  syncFields();
+  const key=$('apiKey')?.value||$('apiKeyD')?.value||'';
+  if(!key){toast('Enter API key first','error');return}
   await saveCfg();
-  const body={api_key:$('apiKey').value};if(section)body.section=section;
+  const body={api_key:key};if(section)body.section=section;
   const res=await fetch(`/api/run/${step}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const data=await res.json();
   if(data.error){toast(data.error,'error');return}
   isRunning=true;currentRunStep=step;setRunning(true);
   toast(`Running: ${step.replace(/_/g,' ')}`);startSSE();
 }
-
-function runFull(){
-  if(isRunning){toast('Already running','error');return}
-  run('full_pipeline');
-}
-
+function runFull(){if(!isRunning)run('full_pipeline')}
 async function stopRun(){await fetch('/api/stop',{method:'POST'});toast('Stopping...')}
 
 async function redoPanel(){
-  const pid=$('redoInput').value.trim();if(!pid){toast('Enter panel ID','error');return}
+  const pid=($('redoInput')?.value||$('redoInputD')?.value||'').trim();
+  if(!pid){toast('Enter panel ID','error');return}
+  syncFields();
+  const key=$('apiKey')?.value||$('apiKeyD')?.value||'';
   const del=await fetch('/api/delete_panel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({panel_id:pid})});
   const d=await del.json();if(d.error){toast(d.error,'error');return}
   toast(`Regenerating ${pid}...`);await saveCfg();
-  const res=await fetch('/api/run/scenes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:$('apiKey').value,section:'__ALL__'})});
+  const res=await fetch('/api/run/scenes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key,section:'__ALL__'})});
   const data=await res.json();if(data.error){toast(data.error,'error');return}
   isRunning=true;currentRunStep='scenes';setRunning(true);startSSE();
 }
 
-function setRunning(v){isRunning=v;$('dot').classList.toggle('on',v);$('statusText').textContent=v?'Generating':'Ready';$('bbStop').classList.toggle('hidden',!v);$('progFill').classList.toggle('on',v)}
+function setRunning(v){
+  isRunning=v;
+  $('dot').classList.toggle('on',v);
+  $('statusText').textContent=v?'Generating':'Ready';
+  ['bbStop','bbStopD'].forEach(id=>{if($(id))$(id).classList.toggle('hidden',!v)});
+  ['progFill','progFillD'].forEach(id=>{if($(id))$(id).classList.toggle('on',v)});
+}
 
 // SSE
 let evtSource=null;
+let sseRetries=0;
 function startSSE(){
   if(evtSource)evtSource.close();
+  sseRetries=0;
   evtSource=new EventSource('/api/stream');
   evtSource.onmessage=e=>{
+    sseRetries=0; // reset on successful message
     const d=JSON.parse(e.data);
     if(d.type==='log')addLog(d.msg,d.tag);
     if(d.type==='progress'){
       const pct=d.total?(d.done/d.total*100):0;
-      $('progFill').style.width=pct+'%';
-      $('progText').textContent=d.total?`${d.done} / ${d.total} · ${Math.round(pct)}%`:'';
+      ['progFill','progFillD'].forEach(id=>{if($(id))$(id).style.width=pct+'%'});
+      const txt=d.total?`${d.done} / ${d.total} · ${Math.round(pct)}%`:'';
+      ['progText','progTextD'].forEach(id=>{if($(id))$(id).textContent=txt});
       if(!d.running&&isRunning){
         setRunning(false);
         if(currentRunStep==='export'){toast('Export ready!');setTimeout(()=>{window.location.href='/api/export_html'},500)}
@@ -494,9 +615,58 @@ function startSSE(){
       }
     }
   };
+  evtSource.onerror=()=>{
+    evtSource.close();
+    if(isRunning&&sseRetries<10){
+      sseRetries++;
+      addLog(`SSE reconnecting (${sseRetries})...`,'warn');
+      setTimeout(startSSE,2000);
+    } else if(isRunning){
+      // Fallback: poll every 3s
+      addLog('SSE failed, polling...','warn');
+      startPolling();
+    }
+  };
 }
 
-function addLog(msg,tag){const el=$('log');const d=document.createElement('div');d.className=tag||'info';d.textContent=msg;el.appendChild(d);el.scrollTop=el.scrollHeight}
+// Polling fallback when SSE drops completely
+let pollTimer=null;
+function startPolling(){
+  if(pollTimer)return;
+  pollTimer=setInterval(async()=>{
+    try{
+      const res=await fetch('/api/stream',{headers:{Accept:'text/event-stream'}});
+      // Just check running state via pipeline_status instead
+      const ps=await fetch('/api/pipeline_status');
+      const d=await ps.json();
+      // Check if any generation thread is still alive via a quick status check
+      const sr=await fetch('/api/run/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})}).catch(()=>null);
+      // If we get "Already running" (409) the thread is alive; if 400/200 it's done
+      refreshPipeline();
+    }catch(e){}
+    // Also try reconnecting SSE
+    if(isRunning&&!evtSource||evtSource.readyState===2){
+      clearInterval(pollTimer);pollTimer=null;
+      sseRetries=0;startSSE();
+    }
+  },3000);
+}
+// Auto-check state on page load
+setTimeout(async()=>{
+  try{
+    const res=await fetch('/api/pipeline_status');
+    if(res.ok){const d=await res.json();if(d.scenes_total>0)refreshPipeline()}
+  }catch(e){}
+},1000);
+
+
+function addLog(msg,tag){
+  ['log','logD'].forEach(id=>{
+    const el=$(id);if(!el)return;
+    const d=document.createElement('div');d.className=tag||'info';d.textContent=msg;
+    el.appendChild(d);el.scrollTop=el.scrollHeight;
+  });
+}
 </script>
 </body>
 </html>
