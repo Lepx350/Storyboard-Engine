@@ -1038,16 +1038,15 @@ def get_config():
             image_config=types.ImageConfig(
                 aspect_ratio=ar,
                 image_size=res_val,
+                output_compression_quality=100,
             )
         )
     except:
-        try:
-            return types.GenerateContentConfig(
-                response_modalities=['IMAGE', 'TEXT'],
-                image_config=types.ImageConfig(aspect_ratio=ar)
-            )
-        except:
-            return types.GenerateContentConfig(response_modalities=['IMAGE', 'TEXT'])
+        # Fallback without image_size for older SDK versions
+        return types.GenerateContentConfig(
+            response_modalities=['IMAGE', 'TEXT'],
+            image_config=types.ImageConfig(aspect_ratio=ar)
+        )
 
 
 def extract_image(response):

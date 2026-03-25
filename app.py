@@ -171,8 +171,14 @@ def settings():
 
 @app.route("/api/run/<step>", methods=["POST"])
 def run_step(step):
+    # Auto-reset stale running state
     if state["running"]:
-        return jsonify(error="Already running"), 409
+        t = state.get("_thread")
+        if t is None or not t.is_alive():
+            state["running"] = False
+            state["stop"] = False
+        else:
+            return jsonify(error="Already running"), 409
     data = request.json or {}
     key = data.get("api_key") or load_config().get("api_key") or os.environ.get("GEMINI_API_KEY")
     if not key:
@@ -184,22 +190,24 @@ def run_step(step):
     state["log"] = []
 
     if step == "characters":
-        threading.Thread(target=run_characters, args=(key,), daemon=True).start()
-    elif step == "environments":
-        threading.Thread(target=run_environments, args=(key,), daemon=True).start()
-    elif step == "master_shots":
-        threading.Thread(target=run_master_shots, args=(key,), daemon=True).start()
+        t = threading.Thread(target=run_characters, args=(key,), daemon=True)
+    elif step == "environments" or step == "master_shots":
+        t = threading.Thread(target=run_environments, args=(key,), daemon=True)
     elif step == "scenes":
         sec = data.get("section", "__ALL__")
-        threading.Thread(target=run_scenes, args=(key, sec), daemon=True).start()
+        t = threading.Thread(target=run_scenes, args=(key, sec), daemon=True)
     elif step == "color_grade":
-        threading.Thread(target=run_color_grade, daemon=True).start()
+        t = threading.Thread(target=run_color_grade, daemon=True)
     elif step == "export":
-        threading.Thread(target=run_export, daemon=True).start()
+        t = threading.Thread(target=run_export, daemon=True)
+    elif step == "full_pipeline":
+        t = threading.Thread(target=run_full_pipeline, args=(key,), daemon=True)
     else:
         state["running"] = False
         return jsonify(error="Unknown step"), 400
 
+    state["_thread"] = t
+    t.start()
     return jsonify(ok=True)
 
 @app.route("/api/stop", methods=["POST"])
@@ -263,10 +271,10 @@ def preview_panel(panel_id):
     if not state["output_dir"]:
         return "No project loaded", 404
     out = state["output_dir"]
-    for d in ["final", "post_processed", "scenes"]:
-        for p in state.get("panels", []):
-            if p.get("id") == panel_id:
-                fname = f"{p.get('f', panel_id)}.png"
+    for p in state.get("panels", []):
+        if p.get("id") == panel_id:
+            fname = f"{p.get('f', panel_id)}.png"
+            for d in ["final", "post_processed", "scenes"]:
                 path = out / d / fname
                 if path.exists():
                     return send_file(str(path), mimetype="image/png")
@@ -285,6 +293,76 @@ def panel_status():
         done = any((out / d / fname).exists() for d in ["final", "post_processed", "scenes"])
         status[pid] = {"done": done, "type": get_asset_type(p)}
     return jsonify(panels=status)
+
+@app.route("/api/pipeline_status")
+def pipeline_status():
+    """Scan disk and return what's been generated at each pipeline stage."""
+    if not state["output_dir"]:
+        return jsonify(chars=[], envs=[], masters=[], scenes_done=0, scenes_total=0, graded=0)
+    out = state["output_dir"]
+
+    # Characters
+    chars_done = []
+    for cid in state.get("used_chars", []):
+        front = out / "characters" / "front" / f"@{cid}.png"
+        tq = out / "characters" / "three_quarter" / f"@{cid}.png"
+        action = out / "characters" / "action" / f"@{cid}.png"
+        active_chars = get_active_characters()
+        name = active_chars.get(cid, {}).get("name", cid)
+        chars_done.append({
+            "id": cid, "name": name,
+            "front": front.exists(),
+            "three_quarter": tq.exists(),
+            "action": action.exists(),
+        })
+
+    # Environments + Masters
+    envs_done = []
+    for eid in state.get("used_envs", []):
+        env_path = out / "environments" / f"{eid}.png"
+        master_path = out / "master_shots" / f"{eid}_master.png"
+        envs_done.append({
+            "id": eid, "name": ENVIRONMENTS.get(eid, {}).get("name", eid),
+            "env": env_path.exists(),
+            "master": master_path.exists(),
+        })
+
+    # Scenes
+    gen = state.get("noir", []) + state.get("fern", [])
+    scenes_done = sum(1 for p in gen if any(
+        (out / d / f"{p.get('f', p['id'])}.png").exists()
+        for d in ["final", "post_processed", "scenes"]
+    ))
+
+    # Graded
+    graded = len(list((out / "post_processed").glob("*.png"))) if (out / "post_processed").exists() else 0
+
+    return jsonify(
+        chars=chars_done, envs=envs_done,
+        scenes_done=scenes_done, scenes_total=len(gen), graded=graded,
+    )
+
+@app.route("/api/ref/<ref_type>/<name>")
+def serve_ref(ref_type, n):
+    """Serve character/env/master reference images."""
+    if not state["output_dir"]:
+        return "No project", 404
+    out = state["output_dir"]
+    if ref_type == "char_front":
+        p = out / "characters" / "front" / f"@{n}.png"
+    elif ref_type == "char_tq":
+        p = out / "characters" / "three_quarter" / f"@{n}.png"
+    elif ref_type == "char_action":
+        p = out / "characters" / "action" / f"@{n}.png"
+    elif ref_type == "env":
+        p = out / "environments" / f"{n}.png"
+    elif ref_type == "master":
+        p = out / "master_shots" / f"{n}_master.png"
+    else:
+        return "Unknown type", 404
+    if p.exists():
+        return send_file(str(p), mimetype="image/png")
+    return "Not found", 404
 
 # ── GENERATION WORKERS ──
 def get_client(key):
@@ -330,54 +408,218 @@ def run_characters(key):
         state["running"] = False
 
 def run_environments(key):
+    """Combined: generate env refs + master shots for each environment."""
     try:
         client = get_client(key)
         out = state["output_dir"]
         envs = sorted(state["used_envs"])
-        total = len(envs)
-        log(f"STEP 2: ENVIRONMENTS ({total})", "head")
-        for i, eid in enumerate(envs):
+        total = len(envs) * 2  # env + master per location
+        done = 0
+        log(f"STEP 2: ENVIRONMENTS + MASTERS ({len(envs)} locations)", "head")
+        for eid in envs:
             if state["stop"]: break
-            prog(i+1, total)
+            # Env ref
+            done += 1; prog(done, total)
             p = out / "environments" / f"{eid}.png"
-            if p.exists(): log(f"[SKIP] {eid}"); continue
-            log(f"[GEN] {eid}...")
-            try:
-                img = gen_single(client, get_env_prompt(eid))
-                if img: p.write_bytes(img); log(f"OK → {eid}", "ok")
-                else: log(f"WARN {eid}", "warn")
-            except Exception as e:
-                log(f"FAIL: {str(e)[:80]}", "fail")
-            time.sleep(4)
-        log("Step 2 done!", "ok")
+            if p.exists():
+                log(f"[SKIP] {eid}")
+            else:
+                log(f"[GEN] {eid}...")
+                try:
+                    img = gen_single(client, get_env_prompt(eid))
+                    if img: p.write_bytes(img); log(f"OK → {eid}", "ok")
+                    else: log(f"WARN {eid}", "warn")
+                except Exception as e:
+                    log(f"FAIL: {str(e)[:80]}", "fail")
+                time.sleep(4)
+
+            # Master shot (uses env ref if available)
+            if state["stop"]: break
+            done += 1; prog(done, total)
+            mp = out / "master_shots" / f"{eid}_master.png"
+            if mp.exists():
+                log(f"[SKIP] {eid} master")
+            else:
+                env_ref = out / "environments" / f"{eid}.png"
+                refs = [str(env_ref)] if env_ref.exists() else []
+                prompt = get_master_shot_prompt(eid)
+                if prompt:
+                    log(f"[GEN] {eid} MASTER...")
+                    try:
+                        img = gen_single(client, prompt, refs)
+                        if img: mp.write_bytes(img); log(f"OK → {eid}_master", "ok")
+                        else: log(f"WARN {eid} master", "warn")
+                    except Exception as e:
+                        log(f"FAIL: {str(e)[:80]}", "fail")
+                    time.sleep(4)
+
+        log("Environments + Masters done!", "ok")
     finally:
         state["running"] = False
 
-def run_master_shots(key):
+def run_full_pipeline(key):
+    """Auto-chain: Characters → Envs+Masters → Scenes → Grade → Export."""
     try:
         client = get_client(key)
         out = state["output_dir"]
+
+        # Step 1: Characters
+        views = ["front", "three_quarter", "action"]
+        chars = sorted(state["used_chars"])
+        chars_total = len(chars) * len(views)
+        chars_remaining = sum(1 for cid in chars for v in views if not (out / "characters" / v / f"@{cid}.png").exists())
+        if chars_remaining > 0:
+            log(f"STEP 1: CHARACTERS ({chars_remaining} remaining of {chars_total})", "head")
+            done = 0
+            for cid in chars:
+                if state["stop"]: return
+                for view in views:
+                    if state["stop"]: return
+                    done += 1; prog(done, chars_total)
+                    p = out / "characters" / view / f"@{cid}.png"
+                    if p.exists(): log(f"[SKIP] @{cid} ({view})"); continue
+                    log(f"[GEN] @{cid} ({view})...")
+                    try:
+                        img = gen_single(client, get_char_view_prompt(cid, view))
+                        if img: p.write_bytes(img); log(f"OK → @{cid}_{view}", "ok")
+                        else: log(f"WARN @{cid}", "warn")
+                    except Exception as e:
+                        log(f"FAIL: {str(e)[:80]}", "fail")
+                    time.sleep(4)
+            log("Characters done!", "ok")
+        else:
+            log("STEP 1: CHARACTERS — all done, skipping", "ok")
+
+        # Step 2: Envs + Masters
         envs = sorted(state["used_envs"])
-        total = len(envs)
-        log(f"STEP 2b: MASTER SHOTS ({total})", "head")
-        for i, eid in enumerate(envs):
-            if state["stop"]: break
-            prog(i+1, total)
-            p = out / "master_shots" / f"{eid}_master.png"
-            if p.exists(): log(f"[SKIP] {eid}"); continue
-            env_ref = out / "environments" / f"{eid}.png"
-            refs = [str(env_ref)] if env_ref.exists() else []
-            prompt = get_master_shot_prompt(eid)
-            if not prompt: continue
-            log(f"[GEN] {eid} MASTER...")
-            try:
-                img = gen_single(client, prompt, refs)
-                if img: p.write_bytes(img); log(f"OK → {eid}_master (L6)", "ok")
-                else: log(f"WARN {eid}", "warn")
-            except Exception as e:
-                log(f"FAIL: {str(e)[:80]}", "fail")
-            time.sleep(4)
-        log("Master shots locked!", "ok")
+        envs_remaining = sum(1 for eid in envs if not (out / "environments" / f"{eid}.png").exists() or not (out / "master_shots" / f"{eid}_master.png").exists())
+        if envs_remaining > 0:
+            log(f"STEP 2: ENVIRONMENTS + MASTERS ({envs_remaining} remaining)", "head")
+            done = 0; total = len(envs) * 2
+            for eid in envs:
+                if state["stop"]: return
+                done += 1; prog(done, total)
+                p = out / "environments" / f"{eid}.png"
+                if p.exists(): log(f"[SKIP] {eid}")
+                else:
+                    log(f"[GEN] {eid}...")
+                    try:
+                        img = gen_single(client, get_env_prompt(eid))
+                        if img: p.write_bytes(img); log(f"OK → {eid}", "ok")
+                    except Exception as e: log(f"FAIL: {str(e)[:80]}", "fail")
+                    time.sleep(4)
+
+                if state["stop"]: return
+                done += 1; prog(done, total)
+                mp = out / "master_shots" / f"{eid}_master.png"
+                if mp.exists(): log(f"[SKIP] {eid} master")
+                else:
+                    env_ref = out / "environments" / f"{eid}.png"
+                    refs = [str(env_ref)] if env_ref.exists() else []
+                    prompt = get_master_shot_prompt(eid)
+                    if prompt:
+                        log(f"[GEN] {eid} MASTER...")
+                        try:
+                            img = gen_single(client, prompt, refs)
+                            if img: mp.write_bytes(img); log(f"OK → {eid}_master", "ok")
+                        except Exception as e: log(f"FAIL: {str(e)[:80]}", "fail")
+                        time.sleep(4)
+            log("Environments + Masters done!", "ok")
+        else:
+            log("STEP 2: ENVS+MASTERS — all done, skipping", "ok")
+
+        # Step 3: Scenes
+        log("STEP 3: SCENES", "head")
+        state["running"] = True  # keep alive
+        mb = state["memory_bank"]
+        all_gen = state["noir"] + state["fern"]
+        remaining = [p for p in all_gen if not any(
+            (out / d / f"{p.get('f', p['id'])}.png").exists()
+            for d in ["final", "post_processed", "scenes"]
+        )]
+        if remaining:
+            log(f"Generating {len(remaining)} scenes ({len(all_gen) - len(remaining)} already done)", "head")
+            # Gather refs
+            char_refs = {}
+            for cid in get_active_characters():
+                front = out / "characters" / "front" / f"@{cid}.png"
+                tq = out / "characters" / "three_quarter" / f"@{cid}.png"
+                if front.exists():
+                    char_refs[cid] = [str(front)]
+                    if tq.exists(): char_refs[cid].append(str(tq))
+            env_refs = {}
+            for eid in ENVIRONMENTS:
+                master = out / "master_shots" / f"{eid}_master.png"
+                basic = out / "environments" / f"{eid}.png"
+                if master.exists(): env_refs[eid] = str(master)
+                elif basic.exists(): env_refs[eid] = str(basic)
+
+            sections = {}
+            for p in all_gen:
+                sec = get_section(p)
+                if sec not in sections: sections[sec] = []
+                pid = p['id']; chars = state["char_map"].get(pid, [])
+                env_id = state["env_map"].get(pid); asset = get_asset_type(p)
+                fname = f"{p.get('f', pid)}.png"
+                primary_char = chars[0] if chars else None
+                refs = []
+                if primary_char and primary_char in char_refs and asset != 'fern':
+                    refs = mb.get_char_refs(primary_char, char_refs[primary_char][:2])
+                if env_id and env_id in env_refs and asset != 'fern' and len(refs) < 6:
+                    refs.extend(mb.get_env_ref(env_id, env_refs.get(env_id)))
+                prompt = build_prompt(p, primary_char, env_id)
+                sections[sec].append({
+                    "id": pid, "prompt": prompt, "refs": refs,
+                    "output": str(out / "scenes" / fname),
+                    "info": f"@{primary_char or '-'} {asset}", "char": primary_char, "env": env_id, "stop": False,
+                })
+
+            total_scenes = len(all_gen)
+            done_n = total_scenes - len(remaining); ok_n = 0; fail_n = 0
+            def cb(event, *args):
+                nonlocal done_n, ok_n, fail_n
+                if event == "generating":
+                    done_n += 1; prog(done_n, total_scenes)
+                    log(f"[{done_n}/{total_scenes}] {args[0]} {args[1] if len(args)>1 else ''}")
+                elif event == "ok":
+                    ok_n += 1; log(f"OK → {args[0]}", "ok")
+                elif event == "skip":
+                    done_n += 1; prog(done_n, total_scenes)
+                elif event == "fail":
+                    fail_n += 1; log(f"FAIL {args[0]}: {args[1] if len(args)>1 else ''}", "fail")
+
+            for sec_name, sec_panels in sections.items():
+                if state["stop"]: return
+                log(f"\n--- {sec_name} ({len(sec_panels)} panels) ---", "head")
+                gen_chat_section(client, sec_name, sec_panels, callback=cb)
+            log(f"Scenes done! OK:{ok_n} Fail:{fail_n}", "ok")
+        else:
+            log("STEP 3: SCENES — all done, skipping", "ok")
+
+        # Step 4: Color Grade
+        src = out / "scenes"; dst = out / "post_processed"
+        ungraded = [f for f in src.glob("*.png") if not (dst / f.name).exists()]
+        if ungraded:
+            log(f"STEP 4: COLOR GRADE ({len(ungraded)} new)", "head")
+            for i, f in enumerate(ungraded):
+                if state["stop"]: return
+                prog(i+1, len(ungraded))
+                try: post_process(str(f), str(dst / f.name)); log(f"OK → {f.name}", "ok")
+                except Exception as e: log(f"FAIL {f.name}: {str(e)[:60]}", "fail")
+            final = out / "final"; final.mkdir(exist_ok=True)
+            for p in state["panels"]:
+                asset = get_asset_type(p)
+                if asset in ('media', 'unknown'): continue
+                fname = f"{p.get('f', p['id'])}.png"
+                s = dst / fname
+                if not s.exists(): s = src / fname
+                if not s.exists(): continue
+                shutil.copy2(str(s), str(final / fname))
+            log("Grade + finalize done!", "ok")
+        else:
+            log("STEP 4: GRADE — all done, skipping", "ok")
+
+        log("FULL PIPELINE COMPLETE ✓", "ok")
     finally:
         state["running"] = False
 
