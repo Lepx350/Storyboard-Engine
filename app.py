@@ -378,6 +378,8 @@ def get_client(key):
 
 def run_characters(key):
     try:
+        if not state["output_dir"]:
+            log("ERROR: No storyboard uploaded", "fail"); return
         client = get_client(key)
         out = state["output_dir"]
         views = ["front", "three_quarter", "action"]
@@ -404,6 +406,8 @@ def run_characters(key):
                     log(f"FAIL: {str(e)[:80]}", "fail")
                 time.sleep(4)
         log("Step 1 done!", "ok")
+    except Exception as e:
+        log(f"PIPELINE ERROR: {str(e)[:120]}", "fail")
     finally:
         state["running"] = False
 
@@ -454,12 +458,18 @@ def run_environments(key):
                     time.sleep(4)
 
         log("Environments + Masters done!", "ok")
+    except Exception as e:
+        log(f"PIPELINE ERROR: {str(e)[:120]}", "fail")
     finally:
         state["running"] = False
 
 def run_full_pipeline(key):
     """Auto-chain: Characters → Envs+Masters → Scenes → Grade → Export."""
     try:
+        if not state["output_dir"]:
+            log("ERROR: No storyboard uploaded. Upload a .jsx file first.", "fail"); return
+        if not state["panels"]:
+            log("ERROR: No panels parsed. Re-upload the storyboard.", "fail"); return
         client = get_client(key)
         out = state["output_dir"]
 
@@ -620,11 +630,15 @@ def run_full_pipeline(key):
             log("STEP 4: GRADE — all done, skipping", "ok")
 
         log("FULL PIPELINE COMPLETE ✓", "ok")
+    except Exception as e:
+        log(f"PIPELINE ERROR: {str(e)[:120]}", "fail")
     finally:
         state["running"] = False
 
 def run_scenes(key, section_filter):
     try:
+        if not state["output_dir"] or not state["panels"]:
+            log("ERROR: No storyboard uploaded. Upload first.", "fail"); return
         client = get_client(key)
         out = state["output_dir"]
         mb = state["memory_bank"]
@@ -708,11 +722,15 @@ def run_scenes(key, section_filter):
             gen_chat_section(client, sec_name, sec_panels, callback=cb)
 
         log(f"DONE! OK:{ok_n} Fail:{fail_n}", "ok")
+    except Exception as e:
+        log(f"SCENES ERROR: {str(e)[:120]}", "fail")
     finally:
         state["running"] = False
 
 def run_color_grade():
     try:
+        if not state["output_dir"]:
+            log("ERROR: No storyboard uploaded", "fail"); return
         out = state["output_dir"]
         src = out / "scenes"; dst = out / "post_processed"
         files = list(src.glob("*.png"))
@@ -740,11 +758,15 @@ def run_color_grade():
             if not s.exists(): continue
             shutil.copy2(str(s), str(final / fname)); copied += 1
         log(f"{copied} images → final/", "ok")
+    except Exception as e:
+        log(f"GRADE ERROR: {str(e)[:120]}", "fail")
     finally:
         state["running"] = False
 
 def run_export():
     try:
+        if not state["output_dir"] or not state["panels"]:
+            log("ERROR: No storyboard uploaded", "fail"); return
         out = state["output_dir"]
         final_dir = out / "final"; pp_dir = out / "post_processed"; scenes_dir = out / "scenes"
 
@@ -812,6 +834,8 @@ def run_export():
         path.write_text(html, encoding="utf-8")
         size = path.stat().st_size / 1024 / 1024
         log(f"Exported: {size:.1f} MB", "ok")
+    except Exception as e:
+        log(f"EXPORT ERROR: {str(e)[:120]}", "fail")
     finally:
         state["running"] = False
 
